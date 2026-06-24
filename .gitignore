@@ -1,0 +1,7 @@
+bin/
+obj/
+Nexus/
+Thunderstore/*.zip
+Thunderstore/TrollingFishing_v*/
+tmp_*/
+.idea/

@@ -1,0 +1,9 @@
+{
+  "name": "Trolling_Fishing",
+  "version_number": "1.0.8",
+  "website_url": "https://discord.gg/jkcJCq2sK5",
+  "description": "Use your fishing rod's secondary attack to cast multiple lines. Your fishing rod includes a fishing bag for fish and bait, and higher Fishing skill improves bite chance, bag capacity, and bag weight reduction.",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2333"
+  ]
+}
