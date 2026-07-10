@@ -1,13 +1,5 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Reflection;
 using HarmonyLib;
-using UnityEngine;
-using UnityEngine.UI;
-using Object = UnityEngine.Object;
 
 namespace TrollingFishing;
 
@@ -36,9 +28,10 @@ internal static class FishingFloatCatchExtraDropSkillPatch
         return true;
     }
 
-    private static void Postfix(FishingOverrideSystem.ExtraDropChanceState __state)
+    private static Exception? Finalizer(Exception? __exception, FishingOverrideSystem.ExtraDropChanceState __state)
     {
         FishingOverrideSystem.RestoreExtraDropChance(__state);
+        return __exception;
     }
 }
 

@@ -1,40 +1,12 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Reflection;
-using HarmonyLib;
 using UnityEngine;
-using UnityEngine.UI;
-using Object = UnityEngine.Object;
 
 namespace TrollingFishing;
 
 internal static partial class FishingOverrideSystem
 {
-    internal static int CountAvailableAmmo(Humanoid humanoid, ItemDrop.ItemData weapon, string ammoType)
-    {
-        int count = CountAmmo(humanoid.GetInventory(), ammoType);
-        if (TrollingFishingPlugin.FishingRodBag.Value.IsOn() && humanoid is Player player && IsFishingRod(weapon))
-        {
-            count += CountFishingRodBagAmmo(player, weapon, ammoType);
-        }
-
-        return count;
-    }
-
-    internal static int CountAvailableAmmo(Humanoid humanoid, ItemDrop.ItemData weapon, string ammoType, ItemDrop.ItemData ammoItem)
-    {
-        int count = CountAmmo(humanoid.GetInventory(), ammoType, ammoItem);
-        if (TrollingFishingPlugin.FishingRodBag.Value.IsOn() && humanoid is Player player && IsFishingRod(weapon))
-        {
-            count += CountFishingRodBagAmmo(player, weapon, ammoType, ammoItem);
-        }
-
-        return count;
-    }
-
     internal static int CountAvailableAmmoFromSource(Humanoid humanoid, ItemDrop.ItemData weapon, string ammoType, ItemDrop.ItemData ammoItem, FishingRodAmmoSource source)
     {
         if (humanoid == null || weapon == null || string.IsNullOrWhiteSpace(ammoType) || ammoItem == null)
@@ -49,18 +21,6 @@ internal static partial class FishingOverrideSystem
                 CountFishingRodBagAmmo(player, weapon, ammoType, ammoItem),
             _ => 0
         };
-    }
-
-    internal static bool TryResolveFishingRodAmmo(Humanoid humanoid, ItemDrop.ItemData weapon, out ItemDrop.ItemData ammoItem)
-    {
-        ammoItem = null!;
-        if (!TryResolveFishingRodAmmoSelection(humanoid, weapon, out FishingRodAmmoSelection selection))
-        {
-            return false;
-        }
-
-        ammoItem = selection.AmmoItem;
-        return true;
     }
 
     internal static bool TryResolveFishingRodAmmoSelection(Humanoid humanoid, ItemDrop.ItemData weapon, out FishingRodAmmoSelection selection)
@@ -198,7 +158,7 @@ internal static partial class FishingOverrideSystem
             if (IsSelectedFishingRodBagBait(rod, item))
             {
                 rod.m_customData.Remove(FishingRodBagStoreState.BagSelectedBaitKey);
-                NotifyFishingRodBagBaitSelectionChanged(player, inventory, rod, saveBagInventory: true);
+                NotifyFishingRodBagBaitSelectionChanged(player, rod);
                 player.Message(MessageHud.MessageType.Center, "$msg_removed " + item.m_shared.m_name);
                 TrollingFishingPlugin.LogDebug($"[Fishing bag] unselected bait {item.m_dropPrefab.name} for rod bag.");
                 return true;
@@ -206,7 +166,7 @@ internal static partial class FishingOverrideSystem
 
             UnequipMatchingInventoryAmmo(player, rod.m_shared.m_ammoType);
             rod.m_customData[FishingRodBagStoreState.BagSelectedBaitKey] = item.m_dropPrefab.name;
-            NotifyFishingRodBagBaitSelectionChanged(player, inventory, rod, saveBagInventory: true);
+            NotifyFishingRodBagBaitSelectionChanged(player, rod);
             player.Message(MessageHud.MessageType.Center, "$msg_added " + item.m_shared.m_name);
             TrollingFishingPlugin.LogDebug($"[Fishing bag] selected bait {item.m_dropPrefab.name} for rod bag.");
             return true;
@@ -358,7 +318,7 @@ internal static partial class FishingOverrideSystem
             }
 
             rod.m_customData.Remove(FishingRodBagStoreState.BagSelectedBaitKey);
-            NotifyOpenFishingRodBagInventoriesChanged(rod, saveBagInventories: false);
+            RefreshOpenFishingRodBagBaitVisuals(rod);
             changed = true;
         }
 
@@ -369,18 +329,13 @@ internal static partial class FishingOverrideSystem
         }
     }
 
-    private static void NotifyFishingRodBagBaitSelectionChanged(Player player, Inventory bagInventory, ItemDrop.ItemData rod, bool saveBagInventory)
+    private static void NotifyFishingRodBagBaitSelectionChanged(Player player, ItemDrop.ItemData rod)
     {
-        NotifyOpenFishingRodBagInventoriesChanged(rod, saveBagInventory);
-        if (saveBagInventory && bagInventory != null)
-        {
-            bagInventory.Changed();
-        }
-
+        RefreshOpenFishingRodBagBaitVisuals(rod);
         player?.GetInventory()?.Changed();
     }
 
-    private static void NotifyOpenFishingRodBagInventoriesChanged(ItemDrop.ItemData rod, bool saveBagInventories)
+    private static void RefreshOpenFishingRodBagBaitVisuals(ItemDrop.ItemData rod)
     {
         if (rod == null)
         {
@@ -397,14 +352,7 @@ internal static partial class FishingOverrideSystem
                     continue;
                 }
 
-                if (saveBagInventories)
-                {
-                    inventory.Changed();
-                }
-                else
-                {
-                    MarkFishingRodBagInventoryVisualDirty(inventory);
-                }
+                MarkFishingRodBagInventoryVisualDirty(inventory);
             }
         }
     }
@@ -458,7 +406,6 @@ internal static partial class FishingOverrideSystem
         }
 
         bagInventory.RemoveItem(item);
-        bagInventory.Changed();
 
         if (alreadyEquipped != null && playerInventory.ContainsItem(alreadyEquipped))
         {

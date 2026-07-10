@@ -1,47 +1,61 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using UnityEngine;
-using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 namespace TrollingFishing;
+
+internal sealed class AttackBaitReturnSourceState
+{
+    internal readonly FishingOverrideSystem.MultiLineBaitReservation Source;
+
+    internal AttackBaitReturnSourceState(FishingOverrideSystem.MultiLineBaitReservation source)
+    {
+        Source = source;
+    }
+}
+
+internal static class MultiLineFishingCastState
+{
+    internal const float AttackGrace = 8f;
+
+    internal static readonly List<FishingFloat> FloatBuffer = new();
+    internal static readonly List<FishingOverrideSystem.MultiLineFishingSetupContext> SetupContexts = new();
+    internal static readonly List<FishingOverrideSystem.MultiLineFishingUpdateContext> UpdateContexts = new();
+}
+
+internal static class BaitSourceTrackerState
+{
+    internal static readonly List<FishingOverrideSystem.MultiLineBaitReservation> SetupContexts = new();
+    internal static readonly ConditionalWeakTable<Attack, AttackBaitReturnSourceState> AttackSources = new();
+}
 
 internal static partial class FishingOverrideSystem
 {
     internal static IDisposable BeginMultiLineFishingSetup()
     {
-        MultiLineFishingCastState.SetupDepth++;
         MultiLineFishingCastState.SetupContexts.Add(MultiLineFishingSetupContext.Empty);
         return new MultiLineFishingSetupScope();
     }
 
-    private static IDisposable BeginMultiLineFishingSetup(MultiLineFishingFloatMarker sourceMarker)
-    {
-        return BeginMultiLineFishingSetup(sourceMarker, consumeTrackedBaitOnSetup: false);
-    }
-
     private static IDisposable BeginMultiLineFishingSetup(MultiLineFishingFloatMarker sourceMarker, bool consumeTrackedBaitOnSetup)
     {
-        MultiLineFishingCastState.SetupDepth++;
         MultiLineFishingCastState.SetupContexts.Add(new MultiLineFishingSetupContext(
             sourceMarker.Owner,
             sourceMarker.Rod,
             sourceMarker.LineIndex,
             sourceMarker.PrimaryEquivalentLineIndex,
-            sourceMarker.ReservedBait,
-            sourceMarker.BaitReturnSource,
+            sourceMarker.TrackedBait,
             consumeTrackedBaitOnSetup));
         return new MultiLineFishingSetupScope();
     }
 
     internal static bool IsMultiLineFishingSetupActive()
     {
-        return MultiLineFishingCastState.SetupDepth > 0;
+        return MultiLineFishingCastState.SetupContexts.Count > 0;
     }
 
     internal static void MarkMultiLineFishingFloat(FishingFloat fishingFloat, Character owner)
@@ -58,9 +72,8 @@ internal static partial class FishingOverrideSystem
             markerOwner,
             context.LineIndex,
             context.PrimaryEquivalentLineIndex,
-            context.ReservedBait,
-            context.Rod,
-            context.BaitReturnSource);
+            context.TrackedBait,
+            context.Rod);
     }
 
     internal static void MarkMultiLineFishingObject(
@@ -68,9 +81,8 @@ internal static partial class FishingOverrideSystem
         Character owner,
         int lineIndex = 0,
         int primaryEquivalentLineIndex = 0,
-        MultiLineBaitReservation reservedBait = default,
-        ItemDrop.ItemData? rod = null,
-        MultiLineBaitReservation baitReturnSource = default)
+        MultiLineBaitReservation trackedBait = default,
+        ItemDrop.ItemData? rod = null)
     {
         if (projectileObject == null || owner == null)
         {
@@ -79,16 +91,15 @@ internal static partial class FishingOverrideSystem
 
         MultiLineFishingFloatMarker marker = projectileObject.GetComponent<MultiLineFishingFloatMarker>() ??
                                              projectileObject.AddComponent<MultiLineFishingFloatMarker>();
-        marker.Initialize(owner, rod, Time.time + MultiLineFishingCastState.AttackGrace, lineIndex, primaryEquivalentLineIndex, reservedBait, baitReturnSource);
+        marker.Initialize(owner, rod, Time.time + MultiLineFishingCastState.AttackGrace, lineIndex, primaryEquivalentLineIndex, trackedBait);
 
-        MultiLineBaitReservation trackedBait = reservedBait.IsValid ? reservedBait : baitReturnSource;
         if (trackedBait.IsValid)
         {
             MarkFishingBaitReturnSource(projectileObject, trackedBait, CurrentMultiLineSetupContext().ConsumeTrackedBaitOnSetup);
         }
 
         TrollingFishingPlugin.LogDebug(
-            $"[Fishing multiLine] marked float object={projectileObject.name} line={marker.LineIndex} primaryLine={marker.PrimaryEquivalentLineIndex} extra={marker.IsAdditionalLine} reservedBait={marker.ReservedBait.PrefabName} hasFishingFloat={projectileObject.GetComponent<FishingFloat>() != null} hasProjectile={projectileObject.GetComponent<Projectile>() != null}.");
+            $"[Fishing multiLine] marked float object={projectileObject.name} line={marker.LineIndex} primaryLine={marker.PrimaryEquivalentLineIndex} extra={marker.IsAdditionalLine} trackedBait={marker.TrackedBait.PrefabName} hasFishingFloat={projectileObject.GetComponent<FishingFloat>() != null} hasProjectile={projectileObject.GetComponent<Projectile>() != null}.");
     }
 
     private static MultiLineFishingSetupContext CurrentMultiLineSetupContext()
@@ -270,6 +281,44 @@ internal static partial class FishingOverrideSystem
         fishingFloat.ReturnBait();
     }
 
+    internal static void DestroyExistingFishingFloats(Character owner, FishingFloat? except = null)
+    {
+        if (owner == null)
+        {
+            return;
+        }
+
+        MultiLineFishingCastState.FloatBuffer.Clear();
+        foreach (FishingFloat fishingFloat in FishingFloat.GetAllInstances())
+        {
+            if (fishingFloat != null && fishingFloat != except && fishingFloat.GetOwner() == owner)
+            {
+                MultiLineFishingCastState.FloatBuffer.Add(fishingFloat);
+            }
+        }
+
+        foreach (FishingFloat fishingFloat in MultiLineFishingCastState.FloatBuffer)
+        {
+            if (fishingFloat == null)
+            {
+                continue;
+            }
+
+            ReturnFishingFloatBaitBeforeDestroy(fishingFloat);
+            GameObject floatObject = fishingFloat.gameObject;
+            if (ZNetScene.instance != null)
+            {
+                ZNetScene.instance.Destroy(floatObject);
+            }
+            else
+            {
+                Object.Destroy(floatObject);
+            }
+        }
+
+        MultiLineFishingCastState.FloatBuffer.Clear();
+    }
+
     internal static void LogMultiLineFishingFloatSetup(FishingFloat fishingFloat, Character owner, string phase)
     {
         if (fishingFloat == null)
@@ -279,24 +328,6 @@ internal static partial class FishingOverrideSystem
 
         TrollingFishingPlugin.LogDebug(
             $"[Fishing multiLine] setup {phase} object={fishingFloat.gameObject.name} setupActive={IsMultiLineFishingSetupActive()} owner={(owner != null ? owner.name : "null")} hasMarker={fishingFloat.GetComponent<MultiLineFishingFloatMarker>() != null}.");
-    }
-
-    internal static void LogMultiLineFishingFloatDestroyed(FishingFloat fishingFloat)
-    {
-        if (fishingFloat == null)
-        {
-            return;
-        }
-
-        MultiLineFishingFloatMarker marker = fishingFloat.GetComponent<MultiLineFishingFloatMarker>();
-        if (marker == null)
-        {
-            return;
-        }
-
-        Character? owner = marker.Owner;
-        TrollingFishingPlugin.LogDebug(
-            $"[Fishing multiLine] float destroyed object={fishingFloat.gameObject.name} owner={(owner != null ? owner.name : "null")} ownerInAttack={(owner != null && owner.InAttack())} ownerDrawing={(owner != null && owner.IsDrawingBow())} inWater={fishingFloat.IsInWater()}.");
     }
 
     internal static void RegisterAttackBaitReturnSource(Attack attack, Player player, ItemDrop.ItemData rod, ItemDrop.ItemData bait)
@@ -423,7 +454,7 @@ internal static partial class FishingOverrideSystem
             return false;
         }
 
-        MultiLineBaitReservation source = marker.ReservedBait.IsValid ? marker.ReservedBait : marker.BaitReturnSource;
+        MultiLineBaitReservation source = marker.TrackedBait;
         if (source.IsValid)
         {
             MarkFishingBaitReturnSource(fishingFloat.gameObject, source);
@@ -498,14 +529,6 @@ internal static partial class FishingOverrideSystem
         return true;
     }
 
-    internal static int ResolveMultiLineFishingCount()
-    {
-        return Mathf.Clamp(
-            TrollingFishingPlugin.FishingRodMultiLineCount.Value,
-            TrollingFishingPlugin.FishingRodMultiLineMinCount,
-            TrollingFishingPlugin.FishingRodMultiLineMaxCount);
-    }
-
     internal static List<MultiLineBaitReservation> ReserveAdditionalMultiLineFishingBaits(Humanoid humanoid, ItemDrop.ItemData weapon, string ammoType, ItemDrop.ItemData targetAmmo, FishingRodAmmoSource source, int amount)
     {
         List<MultiLineBaitReservation> reservations = new();
@@ -521,57 +544,71 @@ internal static partial class FishingOverrideSystem
         if (source == FishingRodAmmoSource.FishingRodBag && TrollingFishingPlugin.FishingRodBag.Value.IsOn())
         {
             Inventory bagInventory = LoadFishingRodBagInventory(player, weapon, out _, out _);
-            foreach (ItemDrop.ItemData item in ResolveFishingRodBagAmmoRemovalOrder(bagInventory, weapon, ammoType, targetAmmo))
+            if (!TryCollectBaitRemovalCandidates(
+                    ResolveFishingRodBagAmmoRemovalOrder(bagInventory, weapon, ammoType, targetAmmo),
+                    amount,
+                    out List<ItemDrop.ItemData> candidates))
             {
-                while (reservations.Count < amount && item.m_stack > 0)
-                {
-                    string prefabName = item.m_dropPrefab != null ? item.m_dropPrefab.name : "";
-                    if (string.IsNullOrWhiteSpace(prefabName))
-                    {
-                        break;
-                    }
-
-                    bagInventory.RemoveItem(item, 1);
-                    reservations.Add(new MultiLineBaitReservation(prefabName, fromRodBag: true));
-                }
-
-                if (reservations.Count >= amount)
-                {
-                    break;
-                }
+                return reservations;
             }
 
-            if (reservations.Any(reservation => reservation.FromRodBag))
+            foreach (ItemDrop.ItemData item in candidates)
             {
-                SaveFishingRodBagInventory(weapon, bagInventory);
+                bagInventory.RemoveItem(item, 1);
+                reservations.Add(new MultiLineBaitReservation(item.m_dropPrefab.name, fromRodBag: true, weapon));
             }
+
+            SaveFishingRodBagInventory(weapon, bagInventory);
         }
 
         if (source == FishingRodAmmoSource.Inventory)
         {
             Inventory playerInventory = player.GetInventory();
-            foreach (ItemDrop.ItemData item in ResolveInventoryAmmoRemovalOrder(playerInventory, ammoType, targetAmmo))
+            if (!TryCollectBaitRemovalCandidates(
+                    ResolveInventoryAmmoRemovalOrder(playerInventory, ammoType, targetAmmo),
+                    amount,
+                    out List<ItemDrop.ItemData> candidates))
             {
-                while (reservations.Count < amount && item.m_stack > 0)
-                {
-                    string prefabName = item.m_dropPrefab != null ? item.m_dropPrefab.name : "";
-                    if (string.IsNullOrWhiteSpace(prefabName))
-                    {
-                        break;
-                    }
+                return reservations;
+            }
 
-                    playerInventory.RemoveItem(item, 1);
-                    reservations.Add(new MultiLineBaitReservation(prefabName, fromRodBag: false));
-                }
-
-                if (reservations.Count >= amount)
-                {
-                    break;
-                }
+            foreach (ItemDrop.ItemData item in candidates)
+            {
+                playerInventory.RemoveItem(item, 1);
+                reservations.Add(new MultiLineBaitReservation(item.m_dropPrefab.name, fromRodBag: false, weapon));
             }
         }
 
         return reservations;
+    }
+
+    private static bool TryCollectBaitRemovalCandidates(
+        IEnumerable<ItemDrop.ItemData> removalOrder,
+        int amount,
+        out List<ItemDrop.ItemData> candidates)
+    {
+        candidates = new List<ItemDrop.ItemData>(Mathf.Max(0, amount));
+        foreach (ItemDrop.ItemData item in removalOrder)
+        {
+            if (item?.m_dropPrefab == null || string.IsNullOrWhiteSpace(item.m_dropPrefab.name))
+            {
+                continue;
+            }
+
+            int take = Mathf.Min(Mathf.Max(0, item.m_stack), amount - candidates.Count);
+            for (int i = 0; i < take; i++)
+            {
+                candidates.Add(item);
+            }
+
+            if (candidates.Count >= amount)
+            {
+                return true;
+            }
+        }
+
+        candidates.Clear();
+        return false;
     }
 
     internal static bool TryConsumeMultiLineFishingBaitOnCatch(FishingFloat fishingFloat, Fish fish)
@@ -648,24 +685,22 @@ internal static partial class FishingOverrideSystem
 
     internal readonly struct MultiLineFishingSetupContext
     {
-        internal static readonly MultiLineFishingSetupContext Empty = new(null, null, 0, 0, default, default);
+        internal static readonly MultiLineFishingSetupContext Empty = new(null, null, 0, 0, default);
 
         internal readonly Character? Owner;
         internal readonly ItemDrop.ItemData? Rod;
         internal readonly int LineIndex;
         internal readonly int PrimaryEquivalentLineIndex;
-        internal readonly MultiLineBaitReservation ReservedBait;
-        internal readonly MultiLineBaitReservation BaitReturnSource;
+        internal readonly MultiLineBaitReservation TrackedBait;
         internal readonly bool ConsumeTrackedBaitOnSetup;
 
-        internal MultiLineFishingSetupContext(Character? owner, ItemDrop.ItemData? rod, int lineIndex, int primaryEquivalentLineIndex, MultiLineBaitReservation reservedBait, MultiLineBaitReservation baitReturnSource, bool consumeTrackedBaitOnSetup = false)
+        internal MultiLineFishingSetupContext(Character? owner, ItemDrop.ItemData? rod, int lineIndex, int primaryEquivalentLineIndex, MultiLineBaitReservation trackedBait, bool consumeTrackedBaitOnSetup = false)
         {
             Owner = owner;
             Rod = rod;
             LineIndex = Mathf.Max(0, lineIndex);
             PrimaryEquivalentLineIndex = Mathf.Max(0, primaryEquivalentLineIndex);
-            ReservedBait = reservedBait;
-            BaitReturnSource = baitReturnSource;
+            TrackedBait = trackedBait;
             ConsumeTrackedBaitOnSetup = consumeTrackedBaitOnSetup;
         }
     }
@@ -688,7 +723,6 @@ internal static partial class FishingOverrideSystem
     {
         public void Dispose()
         {
-            MultiLineFishingCastState.SetupDepth = Mathf.Max(0, MultiLineFishingCastState.SetupDepth - 1);
             if (MultiLineFishingCastState.SetupContexts.Count > 0)
             {
                 MultiLineFishingCastState.SetupContexts.RemoveAt(MultiLineFishingCastState.SetupContexts.Count - 1);
@@ -737,8 +771,7 @@ internal static partial class FishingOverrideSystem
         private float _ignoreAttackUntil;
         private int _lineIndex;
         private int _primaryEquivalentLineIndex;
-        private MultiLineBaitReservation _reservedBait;
-        private MultiLineBaitReservation _baitReturnSource;
+        private MultiLineBaitReservation _trackedBait;
         private bool _initialAttackEnded;
         private bool _loggedInitialAttackSkip;
 
@@ -747,18 +780,16 @@ internal static partial class FishingOverrideSystem
         internal int LineIndex => _lineIndex;
         internal int PrimaryEquivalentLineIndex => _primaryEquivalentLineIndex;
         internal bool IsAdditionalLine => _lineIndex != _primaryEquivalentLineIndex;
-        internal MultiLineBaitReservation ReservedBait => _reservedBait;
-        internal MultiLineBaitReservation BaitReturnSource => _baitReturnSource;
+        internal MultiLineBaitReservation TrackedBait => _trackedBait;
 
-        internal void Initialize(Character owner, ItemDrop.ItemData? rod, float ignoreAttackUntil, int lineIndex, int primaryEquivalentLineIndex, MultiLineBaitReservation reservedBait, MultiLineBaitReservation baitReturnSource)
+        internal void Initialize(Character owner, ItemDrop.ItemData? rod, float ignoreAttackUntil, int lineIndex, int primaryEquivalentLineIndex, MultiLineBaitReservation trackedBait)
         {
             _owner = owner;
             _rod = rod;
             _ignoreAttackUntil = ignoreAttackUntil;
             _lineIndex = Mathf.Max(0, lineIndex);
             _primaryEquivalentLineIndex = Mathf.Max(0, primaryEquivalentLineIndex);
-            _reservedBait = reservedBait;
-            _baitReturnSource = baitReturnSource;
+            _trackedBait = trackedBait;
             _initialAttackEnded = false;
             _loggedInitialAttackSkip = false;
         }

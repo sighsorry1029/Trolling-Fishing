@@ -68,8 +68,6 @@ internal static class FishingBaitConfiguration
         }
 
         Dictionary<string, List<BaitRule>> rulesByFish = BuildRulesByFish(configuration);
-        CaptureOriginalBaitsFromKnownPrefabs();
-
         CurrentRulesByFish.Clear();
         foreach (KeyValuePair<string, List<BaitRule>> pair in rulesByFish)
         {
@@ -209,15 +207,7 @@ internal static class FishingBaitConfiguration
         return rulesByFish;
     }
 
-    private static void CaptureOriginalBaitsFromKnownPrefabs()
-    {
-        foreach (Fish fish in EnumerateKnownFishPrefabs())
-        {
-            EnsureOriginalBaits(StripCloneSuffix(fish.gameObject.name), fish);
-        }
-    }
-
-    private static bool ApplyRulesToFish(string fishName, Fish fish, Dictionary<string, List<BaitRule>> rulesByFish)
+    private static void ApplyRulesToFish(string fishName, Fish fish, Dictionary<string, List<BaitRule>> rulesByFish)
     {
         bool hasRules = rulesByFish.TryGetValue(fishName, out List<BaitRule> rules);
         List<Fish.BaitSetting> baits = hasRules ? new List<Fish.BaitSetting>() : CloneOriginalBaits(fishName, fish);
@@ -226,12 +216,11 @@ internal static class FishingBaitConfiguration
         {
             foreach (BaitRule rule in rules)
             {
-                UpsertBait(baits, rule);
+                baits.Add(rule.ToBaitSetting());
             }
         }
 
         fish.m_baits = baits;
-        return hasRules;
     }
 
     private static void RebuildBaitTooltipEntries()
@@ -351,29 +340,6 @@ internal static class FishingBaitConfiguration
         }
 
         rules.Add(rule);
-    }
-
-    private static void UpsertBait(List<Fish.BaitSetting> baits, BaitRule rule)
-    {
-        for (int i = 0; i < baits.Count; i++)
-        {
-            Fish.BaitSetting baitSetting = baits[i];
-            if (baitSetting?.m_bait == null)
-            {
-                continue;
-            }
-
-            string existingName = StripCloneSuffix(baitSetting.m_bait.name);
-            if (!string.Equals(existingName, rule.BaitName, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            baits[i] = rule.ToBaitSetting();
-            return;
-        }
-
-        baits.Add(rule.ToBaitSetting());
     }
 
     private static bool TryResolveBait(string baitName, out ItemDrop bait)

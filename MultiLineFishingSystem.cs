@@ -10,20 +10,13 @@ namespace TrollingFishing;
 
 internal static class MultiLineFishingSystem
 {
-    private const string FishingRodPrefabName = "FishingRod";
     private static readonly MethodInfo MemberwiseCloneMethod = AccessTools.Method(typeof(object), "MemberwiseClone")!;
     private static readonly ConditionalWeakTable<Player, DrawState> DrawStates = new();
     private static readonly ConditionalWeakTable<Humanoid, AmmoSelectionState> AmmoSelectionStates = new();
 
-    internal static bool IsFishingRod(ItemDrop.ItemData? item)
-    {
-        return item?.m_dropPrefab != null &&
-               string.Equals(item.m_dropPrefab.name, FishingRodPrefabName, StringComparison.OrdinalIgnoreCase);
-    }
-
     internal static bool TryPrepareSecondaryStart(Humanoid humanoid, ItemDrop.ItemData? weapon, ref bool result)
     {
-        if (!IsFishingRod(weapon))
+        if (!FishingOverrideSystem.IsFishingRod(weapon))
         {
             return true;
         }
@@ -57,7 +50,7 @@ internal static class MultiLineFishingSystem
 
     internal static bool ShouldHandleFishingRodDraw(ItemDrop.ItemData? weapon)
     {
-        return IsFishingRod(weapon) &&
+        return FishingOverrideSystem.IsFishingRod(weapon) &&
                weapon!.m_shared.m_attack != null &&
                weapon.m_shared.m_attack.m_bowDraw;
     }
@@ -167,7 +160,7 @@ internal static class MultiLineFishingSystem
 
     internal static void EnsureFishingRodSecondaryAttack(ItemDrop.ItemData? weapon)
     {
-        if (!IsFishingRod(weapon) || weapon!.m_shared.m_attack == null)
+        if (!FishingOverrideSystem.IsFishingRod(weapon) || weapon!.m_shared.m_attack == null)
         {
             return;
         }
@@ -284,7 +277,7 @@ internal static class MultiLineFishingSystem
     internal static bool IsActiveMultiLineAttack(Attack attack)
     {
         return attack != null &&
-               IsFishingRod(attack.m_weapon) &&
+               FishingOverrideSystem.IsFishingRod(attack.m_weapon) &&
                attack.m_character is Humanoid humanoid &&
                ReferenceEquals(humanoid.m_currentAttack, attack) &&
                humanoid.m_currentAttackIsSecondary;
@@ -377,15 +370,17 @@ internal static class MultiLineFishingSystem
                     reservation = baitReservations[reservationIndex++];
                 }
 
+                FishingOverrideSystem.MultiLineBaitReservation trackedBait =
+                    projectileIndex == primaryEquivalentLineIndex ? primaryBaitReturnSource : reservation;
+
                 GameObject projectileObject = SpawnProjectileObject(attack, launchData, spawnPoint, direction, speed);
                 FishingOverrideSystem.MarkMultiLineFishingObject(
                     projectileObject,
                     attack.m_character,
                     projectileIndex,
                     primaryEquivalentLineIndex,
-                    reservation,
-                    attack.m_weapon,
-                    projectileIndex == primaryEquivalentLineIndex ? primaryBaitReturnSource : default);
+                    trackedBait,
+                    attack.m_weapon);
             }
         }
 
@@ -418,8 +413,6 @@ internal static class MultiLineFishingSystem
         GameObject projectilePrefab = attack.m_attackProjectile;
         float projectileVelocity = attack.m_projectileVel;
         float projectileVelocityMin = attack.m_projectileVelMin;
-        float projectileAccuracy = attack.m_projectileAccuracy;
-        float projectileAccuracyMin = attack.m_projectileAccuracyMin;
         float attackHitNoise = attack.m_attackHitNoise;
         AnimationCurve drawVelocityCurve = attack.m_drawVelocityCurve;
 
@@ -428,8 +421,6 @@ internal static class MultiLineFishingSystem
             projectilePrefab = ammoItem.m_shared.m_attack.m_attackProjectile;
             projectileVelocity += ammoItem.m_shared.m_attack.m_projectileVel;
             projectileVelocityMin += ammoItem.m_shared.m_attack.m_projectileVelMin;
-            projectileAccuracy += ammoItem.m_shared.m_attack.m_projectileAccuracy;
-            projectileAccuracyMin += ammoItem.m_shared.m_attack.m_projectileAccuracyMin;
             attackHitNoise += ammoItem.m_shared.m_attack.m_attackHitNoise;
             drawVelocityCurve = ammoItem.m_shared.m_attack.m_drawVelocityCurve;
         }
@@ -442,7 +433,6 @@ internal static class MultiLineFishingSystem
         float damageFactor = attack.m_character.GetRandomSkillFactor(attack.m_weapon.m_shared.m_skillType);
         if (attack.m_bowDraw)
         {
-            projectileAccuracy = Mathf.Lerp(projectileAccuracyMin, projectileAccuracy, Mathf.Pow(attack.m_attackDrawPercentage, 0.5f));
             damageFactor *= attack.m_attackDrawPercentage;
             projectileVelocity = Mathf.Lerp(projectileVelocityMin, projectileVelocity, drawVelocityCurve.Evaluate(attack.m_attackDrawPercentage));
             if (attack.m_character is Player)
@@ -450,19 +440,11 @@ internal static class MultiLineFishingSystem
                 Game.instance.IncrementPlayerStat(PlayerStatType.ArrowsShot);
             }
         }
-        else if (attack.m_skillAccuracy)
-        {
-            float skillFactor = attack.m_character.GetSkillFactor(attack.m_weapon.m_shared.m_skillType);
-            projectileAccuracy = Mathf.Lerp(projectileAccuracyMin, projectileAccuracy, skillFactor);
-        }
-
         return new LaunchData(
             projectilePrefab,
             ammoItem,
             projectileVelocity,
             projectileVelocityMin,
-            projectileAccuracy,
-            projectileAccuracyMin,
             attackHitNoise,
             damageFactor,
             attack.m_randomVelocity && !attack.m_bowDraw);
@@ -590,15 +572,13 @@ internal static class MultiLineFishingSystem
 
     private readonly struct LaunchData
     {
-        public static readonly LaunchData Invalid = new(null, null, 0f, 0f, 0f, 0f, 0f, 0f, false);
+        public static readonly LaunchData Invalid = new(null, null, 0f, 0f, 0f, 0f, false);
 
         public LaunchData(
             GameObject? projectilePrefab,
             ItemDrop.ItemData? ammoItem,
             float projectileVelocity,
             float projectileVelocityMin,
-            float projectileAccuracy,
-            float projectileAccuracyMin,
             float attackHitNoise,
             float damageFactor,
             bool useRandomVelocity)
@@ -607,8 +587,6 @@ internal static class MultiLineFishingSystem
             AmmoItem = ammoItem;
             ProjectileVelocity = projectileVelocity;
             ProjectileVelocityMin = projectileVelocityMin;
-            ProjectileAccuracy = projectileAccuracy;
-            ProjectileAccuracyMin = projectileAccuracyMin;
             AttackHitNoise = attackHitNoise;
             DamageFactor = damageFactor;
             UseRandomVelocity = useRandomVelocity;
@@ -621,10 +599,6 @@ internal static class MultiLineFishingSystem
         public float ProjectileVelocity { get; }
 
         public float ProjectileVelocityMin { get; }
-
-        public float ProjectileAccuracy { get; }
-
-        public float ProjectileAccuracyMin { get; }
 
         public float AttackHitNoise { get; }
 
@@ -715,8 +689,9 @@ internal static class AttackFireProjectileBurstMultiLineFishingPatch
         return true;
     }
 
-    private static void Postfix(IDisposable? __state)
+    private static Exception? Finalizer(Exception? __exception, IDisposable? __state)
     {
         __state?.Dispose();
+        return __exception;
     }
 }

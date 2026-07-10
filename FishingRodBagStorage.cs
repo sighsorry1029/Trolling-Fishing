@@ -1,15 +1,50 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Reflection;
-using HarmonyLib;
+using System.Runtime.CompilerServices;
 using UnityEngine;
-using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 namespace TrollingFishing;
+
+internal sealed class FishingRodBagInventoryState
+{
+    internal readonly List<ItemDrop.ItemData> OverflowItems;
+    internal readonly int VisibleSlots;
+
+    internal FishingRodBagInventoryState(List<ItemDrop.ItemData> overflowItems, int visibleSlots)
+    {
+        OverflowItems = overflowItems;
+        VisibleSlots = visibleSlots;
+    }
+}
+
+internal sealed class BagWeightCacheEntry
+{
+    internal readonly string RawData;
+    internal readonly float Weight;
+
+    internal BagWeightCacheEntry(string rawData, float weight)
+    {
+        RawData = rawData;
+        Weight = weight;
+    }
+}
+
+internal static class FishingRodBagStoreState
+{
+    internal const string FishingRodPrefabName = "FishingRod";
+    internal const string BagDataKey = "TrollingFishing.FishingRodBag.Data";
+    internal const string BagSelectedBaitKey = "TrollingFishing.FishingRodBag.SelectedBait";
+    internal const int FixedSlotCount = 32;
+    internal const int MinSlots = 8;
+    internal const int MaxSlots = 80;
+
+    internal static readonly HashSet<Inventory> Inventories = new();
+    internal static readonly Dictionary<Inventory, ItemDrop.ItemData> InventoryOwners = new();
+    internal static readonly ConditionalWeakTable<Inventory, FishingRodBagInventoryState> InventoryStates = new();
+    internal static readonly Dictionary<ItemDrop.ItemData, BagWeightCacheEntry> WeightCache = new();
+}
 
 internal static partial class FishingOverrideSystem
 {
@@ -172,11 +207,9 @@ internal static partial class FishingOverrideSystem
         return Mathf.Lerp(1f, targetMultiplier, skillFactor);
     }
 
-    private static int ResolveTargetSlotCount(Player player, ItemDrop.ItemData rod)
+    private static int ResolveTargetSlotCount(Player player)
     {
-        int resolvedSlots = NormalizeFishingRodBagSlotCount(ResolveConfiguredSlotCount(player));
-        rod.m_customData[FishingRodBagStoreState.BagSlotsKey] = resolvedSlots.ToString(CultureInfo.InvariantCulture);
-        return resolvedSlots;
+        return NormalizeFishingRodBagSlotCount(ResolveConfiguredSlotCount(player));
     }
 
     private static int ResolveConfiguredSlotCount(Player player)
@@ -252,7 +285,7 @@ internal static partial class FishingOverrideSystem
 
     private static Inventory LoadFishingRodBagInventory(Player player, ItemDrop.ItemData rod, out int width, out int height)
     {
-        int slots = ResolveTargetSlotCount(player, rod);
+        int slots = ResolveTargetSlotCount(player);
         ResolveGridSize(slots, out width, out height);
         Inventory inventory = CreateFishingRodBagInventory(rod, width, height);
         if (rod.m_customData.TryGetValue(FishingRodBagStoreState.BagDataKey, out string rawData) && !string.IsNullOrWhiteSpace(rawData))

@@ -470,7 +470,6 @@
         <Compile Include="FishingRodBagUi.cs" />
         <Compile Include="FishingRodBagUi.Patches.cs" />
         <Compile Include="FishingBaitConfiguration.cs" />
-        <Compile Include="FishingDomainState.cs" />
         <Compile Include="FishingSkillTuning.cs" />
         <Compile Include="FishingSkillTuning.Patches.cs" />
         <Compile Include="FishingLocalization.cs" />

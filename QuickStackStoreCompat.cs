@@ -24,6 +24,7 @@ internal static partial class FishingOverrideSystem
         if (!TryInvokeQuickStackStoreSortInternal(inventory))
         {
             SortFishingRodBagInventoryFallback(inventory);
+            return true;
         }
 
         TrySaveFishingRodBagContainer(container);

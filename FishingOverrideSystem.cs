@@ -1,14 +1,8 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
-using Object = UnityEngine.Object;
 
 namespace TrollingFishing;
 
@@ -62,6 +56,30 @@ internal static partial class FishingOverrideSystem
         item = itemDrop.m_itemData.Clone();
         item.m_stack = 1;
         item.m_dropPrefab = prefab;
+        return true;
+    }
+
+    private static string StripCloneSuffix(string name)
+    {
+        const string cloneSuffix = "(Clone)";
+        return name.EndsWith(cloneSuffix, StringComparison.Ordinal)
+            ? name.Substring(0, name.Length - cloneSuffix.Length)
+            : name;
+    }
+
+    private static bool TryResolveMissingDropPrefab(ItemDrop.ItemData item)
+    {
+        if (item == null || item.m_dropPrefab != null || ObjectDB.instance == null)
+        {
+            return item?.m_dropPrefab != null;
+        }
+
+        if (!ObjectDB.instance.TryGetItemPrefab(item.m_shared, out GameObject itemPrefab))
+        {
+            return false;
+        }
+
+        item.m_dropPrefab = itemPrefab;
         return true;
     }
 }

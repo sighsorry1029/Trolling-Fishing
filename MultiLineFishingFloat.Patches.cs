@@ -53,9 +53,10 @@ internal static class FishingFloatFixedUpdateMultiLineFishingPatch
         return true;
     }
 
-    private static void Postfix(IDisposable? __state)
+    private static Exception? Finalizer(Exception? __exception, IDisposable? __state)
     {
         __state?.Dispose();
+        return __exception;
     }
 }
 
@@ -96,10 +97,18 @@ internal static class ProjectileOnHitMultiLineFishingPatch
         return true;
     }
 
-    private static void Postfix(Projectile __instance, Collider collider, bool water, IDisposable? __state)
+    private static Exception? Finalizer(Projectile __instance, Collider collider, bool water, IDisposable? __state, Exception? __exception)
     {
-        FishingOverrideSystem.TrySettleBaitAfterProjectileGroundHit(__instance, collider, water);
-        __state?.Dispose();
+        try
+        {
+            FishingOverrideSystem.TrySettleBaitAfterProjectileGroundHit(__instance, collider, water);
+        }
+        finally
+        {
+            __state?.Dispose();
+        }
+
+        return __exception;
     }
 }
 

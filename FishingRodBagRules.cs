@@ -1,15 +1,29 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Reflection;
-using HarmonyLib;
 using UnityEngine;
-using UnityEngine.UI;
-using Object = UnityEngine.Object;
 
 namespace TrollingFishing;
+
+internal static class FishingRodBagRulesState
+{
+    internal static readonly HashSet<string> AllowedPrefabNames = new(StringComparer.OrdinalIgnoreCase);
+    internal static readonly HashSet<string> FishChumPrefabNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "FishChumMeadows",
+        "FishChumBlackforest",
+        "FishChumSwamps",
+        "FishChumMountains",
+        "FishChumPlains",
+        "FishChumMistlands",
+        "FishChumAshlands",
+        "FishChumDeepnorth",
+        "FishChumOcean",
+        "SerpentChum",
+        "LeviathanChum",
+    };
+
+    internal static ZNetScene? CachedScene;
+}
 
 internal static partial class FishingOverrideSystem
 {
@@ -104,33 +118,6 @@ internal static partial class FishingOverrideSystem
         string prefabName = StripCloneSuffix(itemPrefab.name);
         return itemPrefab.GetComponent<Fish>() != null ||
                prefabName.IndexOf("Starfish", StringComparison.OrdinalIgnoreCase) >= 0;
-    }
-
-    private static string StripCloneSuffix(string name)
-    {
-        const string cloneSuffix = "(Clone)";
-        if (name.EndsWith(cloneSuffix, StringComparison.Ordinal))
-        {
-            return name.Substring(0, name.Length - cloneSuffix.Length);
-        }
-
-        return name;
-    }
-
-    private static bool TryResolveMissingDropPrefab(ItemDrop.ItemData item)
-    {
-        if (item == null || item.m_dropPrefab != null || ObjectDB.instance == null)
-        {
-            return item?.m_dropPrefab != null;
-        }
-
-        if (ObjectDB.instance.TryGetItemPrefab(item.m_shared, out GameObject itemPrefab))
-        {
-            item.m_dropPrefab = itemPrefab;
-            return true;
-        }
-
-        return false;
     }
 
     private static void EnsureAllowedFishingItemCache()

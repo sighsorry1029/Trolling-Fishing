@@ -1,15 +1,17 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Reflection;
-using HarmonyLib;
 using UnityEngine;
-using UnityEngine.UI;
-using Object = UnityEngine.Object;
 
 namespace TrollingFishing;
+
+internal static class FishingRodBagProxyState
+{
+    internal const float KeepAliveSeconds = 2f;
+
+    internal static readonly Dictionary<ItemDrop.ItemData, FishingOverrideSystem.FishingRodBagProxyContainer> Proxies = new();
+    internal static float KeepAliveUntil = -1f;
+}
 
 internal static partial class FishingOverrideSystem
 {
@@ -103,13 +105,11 @@ internal static partial class FishingOverrideSystem
 
     private static void CreateFishingRodBagProxy(Player player, ItemDrop.ItemData rod)
     {
-        int targetSlots = ResolveTargetSlotCount(player, rod);
-        ResolveGridSize(targetSlots, out int width, out int height);
         GameObject proxyObject = new("TrollingFishing_FishingRodBagProxy");
         proxyObject.transform.position = player.transform.position;
         FishingRodBagProxyContainer proxy = proxyObject.AddComponent<FishingRodBagProxyContainer>();
         Container container = proxyObject.AddComponent<Container>();
-        proxy.Initialize(player, rod, container, targetSlots, width, height);
+        proxy.Initialize(player, rod, container);
         FishingRodBagProxyState.Proxies[rod] = proxy;
     }
 
@@ -148,17 +148,14 @@ internal static partial class FishingOverrideSystem
         private Container? _container;
         private bool _closed;
 
-        internal void Initialize(Player player, ItemDrop.ItemData rod, Container container, int slots, int width, int height)
+        internal void Initialize(Player player, ItemDrop.ItemData rod, Container container)
         {
             _player = player;
             _rod = rod;
             _container = container;
             container.m_name = "$item_fishingrod";
-            container.m_width = width;
-            container.m_height = height;
             container.m_inUse = false;
-            rod.m_customData[FishingRodBagStoreState.BagSlotsKey] = slots.ToString(CultureInfo.InvariantCulture);
-            LoadInventory(width, height);
+            LoadInventory();
             AzuCraftyBoxesCompat.AddContainer(container);
         }
 
@@ -174,16 +171,12 @@ internal static partial class FishingOverrideSystem
                 return;
             }
 
-            int targetSlots = ResolveTargetSlotCount(_player, _rod);
-            ResolveGridSize(targetSlots, out int width, out int height);
-            _container.m_width = width;
-            _container.m_height = height;
-            LoadInventory(width, height);
+            LoadInventory();
         }
 
-        private void LoadInventory(int width, int height)
+        private void LoadInventory()
         {
-            if (_rod == null || _container == null)
+            if (_player == null || _rod == null || _container == null)
             {
                 return;
             }
@@ -194,9 +187,7 @@ internal static partial class FishingOverrideSystem
                 UnregisterFishingRodBagInventory(_inventory);
             }
 
-            _inventory = _player != null
-                ? LoadFishingRodBagInventory(_player, _rod, out width, out height)
-                : CreateFishingRodBagInventory(_rod, width, height);
+            _inventory = LoadFishingRodBagInventory(_player, _rod, out int width, out int height);
 
             _inventory.m_onChanged += Save;
             RegisterFishingRodBagInventory(_inventory, _rod);

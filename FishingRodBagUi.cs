@@ -2,14 +2,17 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
-using Object = UnityEngine.Object;
 
 namespace TrollingFishing;
+
+internal static class FishingRodBagUiState
+{
+    internal static readonly HashSet<ItemDrop.ItemData> OpenRods = new();
+}
 
 internal static partial class FishingOverrideSystem
 {
@@ -62,65 +65,14 @@ internal static partial class FishingOverrideSystem
     {
         if (inventory == null ||
             InventoryGui.instance == null ||
-            InventoryGui.instance.m_containerGrid == null)
+            InventoryGui.instance.m_containerGrid == null ||
+            InventoryGui.instance.m_currentContainer?.GetInventory() != inventory)
         {
             return;
         }
 
         InventoryGui.instance.m_containerGrid.UpdateInventory(inventory, Player.m_localPlayer, null);
     }
-
-    internal static void DestroyExistingFishingFloats(Character owner, FishingFloat? except = null)
-    {
-        if (owner == null)
-        {
-            return;
-        }
-
-        MultiLineFishingCastState.FloatBuffer.Clear();
-        foreach (FishingFloat fishingFloat in FishingFloat.GetAllInstances())
-        {
-            if (fishingFloat != null && fishingFloat != except && fishingFloat.GetOwner() == owner)
-            {
-                MultiLineFishingCastState.FloatBuffer.Add(fishingFloat);
-            }
-        }
-
-        foreach (FishingFloat fishingFloat in MultiLineFishingCastState.FloatBuffer)
-        {
-            if (fishingFloat == null)
-            {
-                continue;
-            }
-
-            FishingOverrideSystem.ReturnFishingFloatBaitBeforeDestroy(fishingFloat);
-            GameObject go = fishingFloat.gameObject;
-            if (ZNetScene.instance != null)
-            {
-                ZNetScene.instance.Destroy(go);
-            }
-            else
-            {
-                Object.Destroy(go);
-            }
-        }
-
-        MultiLineFishingCastState.FloatBuffer.Clear();
-    }
-
-    internal static void TryOpenFishingRodBagFromUseInput(Player player)
-    {
-        if (player == null ||
-            player != Player.m_localPlayer ||
-            TrollingFishingPlugin.FishingRodBag.Value.IsOff() ||
-            InventoryGui.instance == null)
-        {
-            return;
-        }
-
-        TryCloseFishingRodBagFromInput();
-    }
-
 
     internal static bool TryHandleInventoryGuiUseInput(InventoryGui inventoryGui)
     {
@@ -223,13 +175,11 @@ internal static partial class FishingOverrideSystem
     {
         FishingRodBagUiState.OpenRods.Add(rod);
         RemoveFishingRodBagProxy(rod);
-        int targetSlots = ResolveTargetSlotCount(player, rod);
-        ResolveGridSize(targetSlots, out int width, out int height);
         GameObject bagObject = new("TrollingFishing_FishingRodBag");
         bagObject.transform.position = player.transform.position;
         FishingRodBagContainer bag = bagObject.AddComponent<FishingRodBagContainer>();
         Container container = bagObject.AddComponent<Container>();
-        bag.Initialize(player, rod, container, targetSlots, width, height);
+        bag.Initialize(player, rod, container);
         InventoryGui.instance.Show(container, 1);
         ZInput.ResetButtonStatus("Use");
     }
@@ -294,12 +244,12 @@ internal static partial class FishingOverrideSystem
         private Container? _container;
         private bool _closed;
 
-        internal void Initialize(Player player, ItemDrop.ItemData rod, Container container, int slots, int width, int height)
+        internal void Initialize(Player player, ItemDrop.ItemData rod, Container container)
         {
             _player = player;
             _rod = rod;
             _container = container;
-            _inventory = LoadFishingRodBagInventory(player, rod, out width, out height);
+            _inventory = LoadFishingRodBagInventory(player, rod, out int width, out int height);
 
             _inventory.m_onChanged += Save;
             RegisterFishingRodBagInventory(_inventory, rod);
@@ -309,7 +259,6 @@ internal static partial class FishingOverrideSystem
             container.m_inventory = _inventory;
             container.m_inUse = true;
             AzuCraftyBoxesCompat.AddContainer(container);
-            rod.m_customData[FishingRodBagStoreState.BagSlotsKey] = slots.ToString(CultureInfo.InvariantCulture);
             Save();
         }
 
@@ -342,6 +291,17 @@ internal static partial class FishingOverrideSystem
 
         internal void CloseAndDestroy()
         {
+            Cleanup();
+            Destroy(gameObject);
+        }
+
+        private void OnDestroy()
+        {
+            Cleanup();
+        }
+
+        private void Cleanup()
+        {
             if (_closed)
             {
                 return;
@@ -364,8 +324,6 @@ internal static partial class FishingOverrideSystem
             {
                 AzuCraftyBoxesCompat.RemoveContainer(_container);
             }
-
-            Destroy(gameObject);
         }
     }
 }
