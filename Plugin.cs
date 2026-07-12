@@ -15,7 +15,7 @@ namespace TrollingFishing;
 public class TrollingFishingPlugin : BaseUnityPlugin
 {
     internal const string ModName = "TrollingFishing";
-    internal const string ModVersion = "1.0.9";
+    internal const string ModVersion = "1.0.10";
     internal const string Author = "sighsorry";
     internal const int FishingRodMultiLineMinCount = 2;
     internal const int FishingRodMultiLineMaxCount = 10;

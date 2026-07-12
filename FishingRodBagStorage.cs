@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using UnityEngine;
@@ -19,22 +20,11 @@ internal sealed class FishingRodBagInventoryState
     }
 }
 
-internal sealed class BagWeightCacheEntry
-{
-    internal readonly string RawData;
-    internal readonly float Weight;
-
-    internal BagWeightCacheEntry(string rawData, float weight)
-    {
-        RawData = rawData;
-        Weight = weight;
-    }
-}
-
 internal static class FishingRodBagStoreState
 {
     internal const string FishingRodPrefabName = "FishingRod";
     internal const string BagDataKey = "TrollingFishing.FishingRodBag.Data";
+    internal const string BagWeightKey = "TrollingFishing.FishingRodBag.Weight";
     internal const string BagSelectedBaitKey = "TrollingFishing.FishingRodBag.SelectedBait";
     internal const int FixedSlotCount = 32;
     internal const int MinSlots = 8;
@@ -43,7 +33,6 @@ internal static class FishingRodBagStoreState
     internal static readonly HashSet<Inventory> Inventories = new();
     internal static readonly Dictionary<Inventory, ItemDrop.ItemData> InventoryOwners = new();
     internal static readonly ConditionalWeakTable<Inventory, FishingRodBagInventoryState> InventoryStates = new();
-    internal static readonly Dictionary<ItemDrop.ItemData, BagWeightCacheEntry> WeightCache = new();
 }
 
 internal static partial class FishingOverrideSystem
@@ -304,7 +293,6 @@ internal static partial class FishingOverrideSystem
     {
         List<ItemDrop.ItemData> allItems = CollectFishingRodBagStoredItems(inventory);
         SaveFishingRodBagStoredItems(rod, allItems);
-        InvalidateFishingRodBagWeight(rod);
         if (refreshProxy)
         {
             RefreshFishingRodBagProxy(rod);
@@ -315,7 +303,7 @@ internal static partial class FishingOverrideSystem
 
     private static float GetFishingRodBagWeight(ItemDrop.ItemData rod)
     {
-        if (rod == null)
+        if (rod == null || rod.m_customData == null)
         {
             return 0f;
         }
@@ -323,28 +311,27 @@ internal static partial class FishingOverrideSystem
         if (!rod.m_customData.TryGetValue(FishingRodBagStoreState.BagDataKey, out string rawData) ||
             string.IsNullOrWhiteSpace(rawData))
         {
-            FishingRodBagStoreState.WeightCache.Remove(rod);
+            rod.m_customData.Remove(FishingRodBagStoreState.BagWeightKey);
             return 0f;
         }
 
-        if (FishingRodBagStoreState.WeightCache.TryGetValue(rod, out BagWeightCacheEntry cache) &&
-            string.Equals(cache.RawData, rawData, StringComparison.Ordinal))
+        if (TryGetFishingRodBagWeightCache(rod, out float cachedWeight))
         {
-            return cache.Weight;
+            return cachedWeight;
         }
 
-        if (!TryLoadFishingRodBagInventoryForReadOnly(rod, rawData, out Inventory inventory))
+        // Inventory.Load instantiates every stored prefab. Doing that from a weight query can
+        // consume ItemDataManager's one-shot upgrade transfer before the upgraded item awakens.
+        if (!TryReadSerializedFishingRodBagWeight(rawData, out float migratedWeight))
         {
-            FishingRodBagStoreState.WeightCache.Remove(rod);
             return 0f;
         }
 
-        float weight = inventory.GetAllItems().Sum(item => item.GetWeight());
-        FishingRodBagStoreState.WeightCache[rod] = new BagWeightCacheEntry(rawData, weight);
-        return weight;
+        SetFishingRodBagWeightCache(rod, migratedWeight);
+        return migratedWeight;
     }
 
-    private static bool TryLoadFishingRodBagInventoryForReadOnly(ItemDrop.ItemData rod, string rawData, out Inventory inventory)
+    private static bool TryLoadFishingRodBagInventorySnapshot(ItemDrop.ItemData rod, string rawData, out Inventory inventory)
     {
         ResolveGridSize(FishingRodBagStoreState.MaxSlots, out int width, out int height);
         inventory = CreateFishingRodBagInventory(rod, width, height);
@@ -355,22 +342,14 @@ internal static partial class FishingOverrideSystem
         }
         catch (Exception exception)
         {
-            TrollingFishingPlugin.ModLogger.LogWarning($"Could not read FishingRod bag weight: {exception.GetBaseException().Message}");
+            TrollingFishingPlugin.ModLogger.LogWarning($"Could not read FishingRod bag data: {exception.GetBaseException().Message}");
             return false;
-        }
-    }
-
-    private static void InvalidateFishingRodBagWeight(ItemDrop.ItemData rod)
-    {
-        if (rod != null)
-        {
-            FishingRodBagStoreState.WeightCache.Remove(rod);
         }
     }
 
     private static void LoadFishingRodBagVisibleInventory(ItemDrop.ItemData rod, Inventory visibleInventory, string rawData, int visibleSlots)
     {
-        if (!TryLoadFishingRodBagInventoryForReadOnly(rod, rawData, out Inventory storedInventory))
+        if (!TryLoadFishingRodBagInventorySnapshot(rod, rawData, out Inventory storedInventory))
         {
             SetFishingRodBagInventoryState(visibleInventory, new FishingRodBagInventoryState(new List<ItemDrop.ItemData>(), visibleSlots));
             return;
@@ -457,9 +436,179 @@ internal static partial class FishingOverrideSystem
             storageInventory.m_inventory.Add(copy);
         }
 
+        List<ItemDrop.ItemData> storedItems = storageInventory.GetAllItems();
+        if (storedItems.Count == 0)
+        {
+            rod.m_customData.Remove(FishingRodBagStoreState.BagDataKey);
+            rod.m_customData.Remove(FishingRodBagStoreState.BagWeightKey);
+            return;
+        }
+
         ZPackage package = new();
         storageInventory.Save(package);
         rod.m_customData[FishingRodBagStoreState.BagDataKey] = package.GetBase64();
+        SetFishingRodBagWeightCache(rod, CalculateFishingRodBagWeight(storedItems));
+    }
+
+    private static float CalculateFishingRodBagWeight(IEnumerable<ItemDrop.ItemData> items)
+    {
+        float weight = 0f;
+        foreach (ItemDrop.ItemData item in items)
+        {
+            if (item == null)
+            {
+                continue;
+            }
+
+            float itemWeight = item.GetWeight();
+            if (!IsValidFishingRodBagWeight(itemWeight))
+            {
+                return float.NaN;
+            }
+
+            weight += itemWeight;
+            if (!IsValidFishingRodBagWeight(weight))
+            {
+                return float.NaN;
+            }
+        }
+
+        return weight;
+    }
+
+    private static bool TryReadSerializedFishingRodBagWeight(string rawData, out float storedWeight)
+    {
+        storedWeight = 0f;
+        try
+        {
+            ZPackage package = new(rawData);
+            int version = package.ReadInt();
+            int itemCount = package.ReadInt();
+            if (version < 100 || version > 106 || itemCount < 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < itemCount; ++i)
+            {
+                string prefabName = package.ReadString();
+                int stack = package.ReadInt();
+                _ = package.ReadSingle();
+                _ = package.ReadVector2i();
+                _ = package.ReadBool();
+                int quality = 1;
+                if (version >= 101)
+                {
+                    quality = package.ReadInt();
+                }
+
+                if (version >= 102)
+                {
+                    _ = package.ReadInt();
+                }
+
+                if (version >= 103)
+                {
+                    _ = package.ReadLong();
+                    _ = package.ReadString();
+                }
+
+                if (version >= 104)
+                {
+                    int customDataCount = package.ReadInt();
+                    if (customDataCount < 0)
+                    {
+                        return false;
+                    }
+
+                    for (int j = 0; j < customDataCount; ++j)
+                    {
+                        _ = package.ReadString();
+                        _ = package.ReadString();
+                    }
+                }
+
+                if (version >= 105)
+                {
+                    _ = package.ReadInt();
+                }
+
+                if (version >= 106)
+                {
+                    _ = package.ReadBool();
+                }
+
+                if (!TryCalculateSerializedFishingRodBagItemWeight(prefabName, stack, quality, out float itemWeight))
+                {
+                    storedWeight = 0f;
+                    return false;
+                }
+
+                storedWeight += itemWeight;
+                if (!IsValidFishingRodBagWeight(storedWeight))
+                {
+                    storedWeight = 0f;
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        catch (Exception)
+        {
+            storedWeight = 0f;
+            return false;
+        }
+    }
+
+    private static bool TryCalculateSerializedFishingRodBagItemWeight(string prefabName, int stack, int quality, out float weight)
+    {
+        weight = 0f;
+        if (string.IsNullOrWhiteSpace(prefabName) || stack < 0 || ObjectDB.instance == null)
+        {
+            return false;
+        }
+
+        GameObject prefab = ObjectDB.instance.GetItemPrefab(prefabName);
+        if ((Object)(object)prefab == null ||
+            !prefab.TryGetComponent(out ItemDrop itemDrop) ||
+            itemDrop.m_itemData?.m_shared == null)
+        {
+            return false;
+        }
+
+        ItemDrop.ItemData.SharedData shared = itemDrop.m_itemData.m_shared;
+        weight = shared.m_weight * stack;
+        if (shared.m_scaleWeightByQuality != 0f && quality != 1)
+        {
+            weight += weight * (quality - 1) * shared.m_scaleWeightByQuality;
+        }
+
+        return IsValidFishingRodBagWeight(weight);
+    }
+
+    private static bool TryGetFishingRodBagWeightCache(ItemDrop.ItemData rod, out float weight)
+    {
+        weight = 0f;
+        return rod.m_customData.TryGetValue(FishingRodBagStoreState.BagWeightKey, out string rawWeight) &&
+               float.TryParse(rawWeight, NumberStyles.Float, CultureInfo.InvariantCulture, out weight) &&
+               IsValidFishingRodBagWeight(weight);
+    }
+
+    private static void SetFishingRodBagWeightCache(ItemDrop.ItemData rod, float weight)
+    {
+        if (!IsValidFishingRodBagWeight(weight))
+        {
+            rod.m_customData.Remove(FishingRodBagStoreState.BagWeightKey);
+            return;
+        }
+
+        rod.m_customData[FishingRodBagStoreState.BagWeightKey] = weight.ToString("R", CultureInfo.InvariantCulture);
+    }
+
+    private static bool IsValidFishingRodBagWeight(float weight)
+    {
+        return weight >= 0f && !float.IsNaN(weight) && !float.IsInfinity(weight);
     }
 
     private static void SetFishingRodBagInventoryState(Inventory inventory, FishingRodBagInventoryState state)
