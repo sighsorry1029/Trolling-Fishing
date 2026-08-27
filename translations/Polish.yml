@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Naciśnij <b>$KEY_Use</b>, aby otworzyć torbę wędkarską."
+tf_fishingrod_multi_line_hint: "Przytrzymaj <b>$KEY_SecondaryAttack</b>, aby zarzucić kilka żyłek."
+tf_fishing_bait_tooltip_header: "Akceptowane przez:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Poziom Wędkarstwa zwiększa szansę każdej ryby na wybranie pobliskiego spławika od wartości bazowej do co najmniej {0}% na poziomie 100."
+tf_skill_fishing_extra_drops: "Poziom Wędkarstwa mnoży szansę na dodatkowy łup nawet x{0} na poziomie 100."
+tf_skill_fishing_bag_slots: "Torba na wędkę zyskuje 8 miejsc co 10 poziomów Wędkarstwa (8-80 miejsc)."
+tf_skill_fishing_bag_weight: "Zawartość torby na wędkę waży pełną wartość na poziomie 0 i {0}% na poziomie 100."

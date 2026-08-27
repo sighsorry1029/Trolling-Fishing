@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "按 <b>$KEY_Use</b> 打开钓鱼包。"
+tf_fishingrod_multi_line_hint: "长按 <b>$KEY_SecondaryAttack</b> 抛出多根鱼线。"
+tf_fishing_bait_tooltip_header: "可钓："
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "钓鱼等级会将每条鱼锁定附近浮标的概率从基础值提升至100级时至少{0}%。"
+tf_skill_fishing_extra_drops: "钓鱼等级会将额外掉落概率提高至100级时最多x{0}。"
+tf_skill_fishing_bag_slots: "钓竿包每10级钓鱼增加8个栏位（8-80个栏位）。"
+tf_skill_fishing_bag_weight: "钓竿包内容物的重量从0级的全额降低至100级的{0}%。"

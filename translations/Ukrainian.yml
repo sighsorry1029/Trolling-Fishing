@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Натисніть <b>$KEY_Use</b>, щоб відкрити рибальську сумку."
+tf_fishingrod_multi_line_hint: "Утримуйте <b>$KEY_SecondaryAttack</b>, щоб закинути кілька лісок."
+tf_fishing_bait_tooltip_header: "Підходить для:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Рівень Риболовлі підвищує шанс кожної риби вибрати найближчий поплавець від базового значення щонайменше до {0}% на рівні 100."
+tf_skill_fishing_extra_drops: "Рівень Риболовлі множить шанс додаткової здобичі до x{0} на рівні 100."
+tf_skill_fishing_bag_slots: "Сумка вудки отримує 8 комірок за кожні 10 рівнів Риболовлі (8-80 комірок)."
+tf_skill_fishing_bag_weight: "Вага вмісту сумки вудки зменшується з повної на рівні 0 до {0}% на рівні 100."

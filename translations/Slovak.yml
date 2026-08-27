@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Stlač <b>$KEY_Use</b> na otvorenie rybárskej tašky."
+tf_fishingrod_multi_line_hint: "Podrž <b>$KEY_SecondaryAttack</b> na nahodenie viacerých rybárskych vlascov."
+tf_fishing_bait_tooltip_header: "Prijímajú:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Úroveň Rybolovu zvyšuje šancu každej ryby zamerať blízky plavák zo základnej hodnoty aspoň na {0}% na úrovni 100."
+tf_skill_fishing_extra_drops: "Úroveň Rybolovu násobí šancu na korisť navyše až x{0} na úrovni 100."
+tf_skill_fishing_bag_slots: "Taška na udicu získa 8 miest každých 10 úrovní Rybolovu (8-80 miest)."
+tf_skill_fishing_bag_weight: "Obsah tašky na udicu prechádza z plnej hmotnosti na úrovni 0 na {0}% hmotnosti na úrovni 100."

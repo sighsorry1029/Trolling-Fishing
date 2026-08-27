@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Tryk på <b>$KEY_Use</b> for at åbne fisketasken."
+tf_fishingrod_multi_line_hint: "Hold <b>$KEY_SecondaryAttack</b> nede for at kaste flere fiskeliner."
+tf_fishing_bait_tooltip_header: "Accepteres af:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Fiskeri-niveau øger hver fisks chance for at vælge en nærliggende prop fra grundchancen mod mindst {0}% på niveau 100."
+tf_skill_fishing_extra_drops: "Fiskeri-niveau ganger chancen for ekstra bytte med op til x{0} på niveau 100."
+tf_skill_fishing_bag_slots: "Fiskestangstasken får 8 pladser for hver 10 Fiskeri-niveauer (8-80 pladser)."
+tf_skill_fishing_bag_weight: "Indholdet i fiskestangstasken går fra fuld vægt på niveau 0 til {0}% vægt på niveau 100."

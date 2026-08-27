@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Balık çantasını açmak için <b>$KEY_Use</b> tuşuna bas."
+tf_fishingrod_multi_line_hint: "Birden fazla olta misinası atmak için <b>$KEY_SecondaryAttack</b> tuşunu basılı tut."
+tf_fishing_bait_tooltip_header: "Kabul edenler:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Balıkçılık seviyesi, her balığın yakındaki bir şamandırayı hedefleme olasılığını temel değerinden 100. seviyede en az %{0} değerine doğru artırır."
+tf_skill_fishing_extra_drops: "Balıkçılık seviyesi, ek ganimet olasılığını 100. seviyede en fazla x{0} ile çarpar."
+tf_skill_fishing_bag_slots: "Olta çantası her 10 Balıkçılık seviyesinde 8 yuva kazanır (8-80 yuva)."
+tf_skill_fishing_bag_weight: "Olta çantasının içeriği 0. seviyede tam ağırlıktan 100. seviyede %{0} ağırlığa iner."

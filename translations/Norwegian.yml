@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Trykk på <b>$KEY_Use</b> for å åpne fiskebagen."
+tf_fishingrod_multi_line_hint: "Hold inne <b>$KEY_SecondaryAttack</b> for å kaste flere fiskesnører."
+tf_fishing_bait_tooltip_header: "Godtas av:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Fiskeferdigheten øker hver fisks sjanse til å velge en nærliggende dupp fra grunnsjansen mot minst {0}% på nivå 100."
+tf_skill_fishing_extra_drops: "Fiskeferdigheten multipliserer sjansen for ekstra bytte med opptil x{0} på nivå 100."
+tf_skill_fishing_bag_slots: "Fiskestangbagen får 8 plasser for hvert 10. nivå i Fiske (8-80 plasser)."
+tf_skill_fishing_bag_weight: "Innholdet i fiskestangbagen går fra full vekt på nivå 0 til {0}% vekt på nivå 100."

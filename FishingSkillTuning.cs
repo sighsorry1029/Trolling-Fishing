@@ -130,7 +130,7 @@ internal static partial class FishingOverrideSystem
         }
 
         float skillFactor = Mathf.Clamp01(player.GetSkillFactor(Skills.SkillType.Fishing));
-        float bonusFactor = Mathf.Clamp(TrollingFishingPlugin.FishingOverrideExtraDropChanceBonusFactor.Value, 0f, 2f);
+        float bonusFactor = Mathf.Clamp(TrollingFishingPlugin.FishingOverrideExtraDropChanceBonusFactor.Value, 0f, 4f);
         return Mathf.Clamp01(chance * (1f + bonusFactor * skillFactor));
     }
 }

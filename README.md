@@ -66,6 +66,12 @@ If AzuCraftyBoxes is installed, FishingRod bags in the player's inventory can be
 
 The proxy container is created only around crafting/cooking lookup contexts and is cleaned up afterward. FishingRods inside external chests are not recursively exposed.
 
+### Localization
+
+TrollingFishing includes translations for Valheim's supported languages. Custom translations can be added anywhere under BepInEx as `TrollingFishing.Language.yml`, such as `TrollingFishing.Korean.yml`; omitted keys fall back to English.
+
+Localization loading is adapted from [AzumattDev/LocalizationManager](https://github.com/AzumattDev/LocalizationManager) under the MIT License.
+
 ## Configuration
 - Also, check `TrollingFishing.yml` to configure which bait each fish will nibble on.
 ```

@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Нажмите <b>$KEY_Use</b>, чтобы открыть рыболовную сумку."
+tf_fishingrod_multi_line_hint: "Удерживайте <b>$KEY_SecondaryAttack</b>, чтобы закинуть несколько лесок."
+tf_fishing_bait_tooltip_header: "Принимается:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Уровень Рыбалки повышает шанс каждой рыбы выбрать ближайший поплавок от базового значения как минимум до {0}% на уровне 100."
+tf_skill_fishing_extra_drops: "Уровень Рыбалки умножает шанс дополнительной добычи вплоть до x{0} на уровне 100."
+tf_skill_fishing_bag_slots: "Сумка удочки получает 8 ячеек за каждые 10 уровней Рыбалки (8-80 ячеек)."
+tf_skill_fishing_bag_weight: "Вес содержимого сумки удочки уменьшается с полного на уровне 0 до {0}% на уровне 100."

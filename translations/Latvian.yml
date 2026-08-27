@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Nospiediet <b>$KEY_Use</b>, lai atvērtu makšķerēšanas somu."
+tf_fishingrod_multi_line_hint: "Turiet <b>$KEY_SecondaryAttack</b>, lai iemestu vairākas makšķerauklas."
+tf_fishing_bait_tooltip_header: "Derīgs:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Makšķerēšanas līmenis palielina katras zivs iespēju izvēlēties tuvumā esošu pludiņu no pamata vērtības līdz vismaz {0}% 100. līmenī."
+tf_skill_fishing_extra_drops: "Makšķerēšanas līmenis reizina papildu guvuma iespēju līdz x{0} 100. līmenī."
+tf_skill_fishing_bag_slots: "Makšķeres soma iegūst 8 vietas ik pēc 10 Makšķerēšanas līmeņiem (8-80 vietas)."
+tf_skill_fishing_bag_weight: "Makšķeres somas saturs sver pilnu svaru 0. līmenī un {0}% svara 100. līmenī."

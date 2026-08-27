@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "按下 <b>$KEY_Use</b> 開啟釣魚包。"
+tf_fishingrod_multi_line_hint: "長按 <b>$KEY_SecondaryAttack</b> 拋出多條釣線。"
+tf_fishing_bait_tooltip_header: "可釣："
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "釣魚等級會將每條魚鎖定附近浮標的機率從基礎值提升至100級時至少{0}%。"
+tf_skill_fishing_extra_drops: "釣魚等級會將額外掉落機率提高至100級時最多x{0}。"
+tf_skill_fishing_bag_slots: "釣竿包每10級釣魚增加8個欄位（8-80個欄位）。"
+tf_skill_fishing_bag_weight: "釣竿包內容物的重量從0級的全額降低至100級的{0}%。"

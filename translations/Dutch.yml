@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Druk op <b>$KEY_Use</b> om de vistas te openen."
+tf_fishingrod_multi_line_hint: "Houd <b>$KEY_SecondaryAttack</b> ingedrukt om meerdere vislijnen uit te werpen."
+tf_fishing_bait_tooltip_header: "Geaccepteerd door:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Het Visserij-niveau verhoogt voor elke vis de kans om een dobber in de buurt te kiezen van de basiskans naar minstens {0}% op niveau 100."
+tf_skill_fishing_extra_drops: "Het Visserij-niveau vermenigvuldigt de kans op extra buit tot x{0} op niveau 100."
+tf_skill_fishing_bag_slots: "De hengeltas krijgt elke 10 Visserij-niveaus 8 vakken (8-80 vakken)."
+tf_skill_fishing_bag_weight: "De inhoud van de hengeltas gaat van volledig gewicht op niveau 0 naar {0}% gewicht op niveau 100."

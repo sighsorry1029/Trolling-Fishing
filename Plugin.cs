@@ -15,7 +15,7 @@ namespace TrollingFishing;
 public class TrollingFishingPlugin : BaseUnityPlugin
 {
     internal const string ModName = "TrollingFishing";
-    internal const string ModVersion = "1.0.10";
+    internal const string ModVersion = "1.0.11";
     internal const string Author = "sighsorry";
     internal const int FishingRodMultiLineMinCount = 2;
     internal const int FishingRodMultiLineMaxCount = 10;
@@ -59,6 +59,7 @@ public class TrollingFishingPlugin : BaseUnityPlugin
 
     public void Awake()
     {
+        FishingLocalization.Initialize(this);
         bool saveOnSet = Config.SaveOnConfigSet;
         Config.SaveOnConfigSet = false;
 
@@ -85,7 +86,7 @@ public class TrollingFishingPlugin : BaseUnityPlugin
 
         Assembly assembly = Assembly.GetExecutingAssembly();
         _harmony.PatchAll(assembly);
-        FishingLocalization.Register();
+        FishingLocalization.LoadLocalizationLater();
         SetupWatcher();
 
         Config.Save();
@@ -103,6 +104,7 @@ public class TrollingFishingPlugin : BaseUnityPlugin
         _watcher?.Dispose();
         _baitConfigWatcher?.Dispose();
         _harmony.UnpatchSelf();
+        FishingLocalization.Shutdown();
     }
 
     private void SetupWatcher()

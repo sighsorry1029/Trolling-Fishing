@@ -496,6 +496,7 @@
         <Content Include="Thunderstore\icon.png" />
         <Content Include="Thunderstore\manifest.json" />
         <Content Include="UpdateManifest.ps1" />
+        <EmbeddedResource Include="translations\*.yml" />
     </ItemGroup>
     <ItemGroup>
         <None Include="App.config" />
@@ -559,6 +560,7 @@
     <Target Name="MakeThunderstorePackage" AfterTargets="UpdateManifestVersion" Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
         <Error Text="manifest.json not found in Thunderstore directory." Condition="!Exists('$(ProjectDir)\Thunderstore\manifest.json')" />
         <Error Text="icon.png not found in Thunderstore directory. Please note that Thunderstore requires this image to be 256x256 in dimension" Condition="!Exists('$(ProjectDir)\Thunderstore\icon.png')" />
+        <Error Text="translations\English.yml not found. Release packaging requires it for external localization overrides." Condition="!Exists('$(ProjectDir)translations\English.yml')" />
         <ItemGroup>
             <PackageFiles Include="$(TargetDir)$(AssemblyName).dll" Condition="Exists('$(TargetDir)$(AssemblyName).dll')" />
             <PackageFiles Include="$(ProjectDir)README.md" Condition="Exists('$(ProjectDir)README.md')" />
@@ -569,6 +571,7 @@
         <RemoveDir Directories="$(PackageDir)" Condition="Exists('$(PackageDir)')" />
         <MakeDir Directories="$(PackageDir)" />
         <Copy SourceFiles="@(PackageFiles)" DestinationFolder="$(PackageDir)" />
+        <Copy SourceFiles="$(ProjectDir)translations\English.yml" DestinationFiles="$(PackageDir)\$(AssemblyName).English.yml" />
         <ZipDirectory SourceDirectory="$(PackageDir)" DestinationFile="Thunderstore\$(PackageName).zip" Overwrite="true" />
         <RemoveDir Directories="$(PackageDir)" />
     </Target>

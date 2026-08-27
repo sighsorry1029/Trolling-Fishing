@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "กด <b>$KEY_Use</b> เพื่อเปิดกระเป๋าตกปลา"
+tf_fishingrod_multi_line_hint: "กด <b>$KEY_SecondaryAttack</b> ค้างไว้เพื่อเหวี่ยงสายเบ็ดหลายสาย"
+tf_fishing_bait_tooltip_header: "ใช้ได้กับ:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "เลเวลตกปลาจะเพิ่มโอกาสที่ปลาแต่ละตัวจะเล็งทุ่นใกล้เคียงจากค่าพื้นฐานไปจนถึงอย่างน้อย {0}% ที่เลเวล 100"
+tf_skill_fishing_extra_drops: "เลเวลตกปลาจะคูณโอกาสได้รับของเพิ่มเติมได้สูงสุด x{0} ที่เลเวล 100"
+tf_skill_fishing_bag_slots: "กระเป๋าคันเบ็ดได้รับ 8 ช่องทุก ๆ 10 เลเวลตกปลา (8-80 ช่อง)"
+tf_skill_fishing_bag_weight: "สิ่งของในกระเป๋าคันเบ็ดมีน้ำหนักเต็มที่เลเวล 0 และลดเหลือ {0}% ที่เลเวล 100"

@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Appuyez sur <b>$KEY_Use</b> pour ouvrir le sac de pêche."
+tf_fishingrod_multi_line_hint: "Maintenez <b>$KEY_SecondaryAttack</b> pour lancer plusieurs lignes de pêche."
+tf_fishing_bait_tooltip_header: "Accepté par :"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Le niveau de Pêche augmente la probabilité que chaque poisson cible un flotteur proche, de sa chance de base jusqu'à au moins {0}% au niveau 100."
+tf_skill_fishing_extra_drops: "Le niveau de Pêche multiplie la probabilité de butin supplémentaire jusqu'à x{0} au niveau 100."
+tf_skill_fishing_bag_slots: "Le sac de canne à pêche gagne 8 emplacements tous les 10 niveaux de Pêche (8 à 80 emplacements)."
+tf_skill_fishing_bag_weight: "Le contenu du sac de canne à pêche passe de son poids total au niveau 0 à {0}% au niveau 100."

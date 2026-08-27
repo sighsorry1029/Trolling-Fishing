@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Paspauskite <b>$KEY_Use</b>, kad atidarytumėte žvejybos krepšį."
+tf_fishingrod_multi_line_hint: "Laikykite <b>$KEY_SecondaryAttack</b>, kad užmestumėte kelis žvejybos valus."
+tf_fishing_bait_tooltip_header: "Priima:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Žvejybos lygis didina kiekvienos žuvies tikimybę pasirinkti netoliese esančią plūdę nuo bazinės tikimybės iki bent {0}% ties 100 lygiu."
+tf_skill_fishing_extra_drops: "Žvejybos lygis padidina papildomo grobio tikimybę iki x{0} ties 100 lygiu."
+tf_skill_fishing_bag_slots: "Meškerės krepšys gauna 8 vietas kas 10 Žvejybos lygių (8-80 vietų)."
+tf_skill_fishing_bag_weight: "Meškerės krepšio turinys sveria visą svorį ties 0 lygiu ir {0}% ties 100 lygiu."

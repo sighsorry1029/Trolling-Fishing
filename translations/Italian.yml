@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Premi <b>$KEY_Use</b> per aprire la borsa da pesca."
+tf_fishingrod_multi_line_hint: "Tieni premuto <b>$KEY_SecondaryAttack</b> per lanciare più lenze da pesca."
+tf_fishing_bait_tooltip_header: "Accettata da:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Il livello di Pesca aumenta la probabilità che ogni pesce punti un galleggiante vicino, dalla probabilità base fino ad almeno {0}% al livello 100."
+tf_skill_fishing_extra_drops: "Il livello di Pesca moltiplica la probabilità di bottino extra fino a x{0} al livello 100."
+tf_skill_fishing_bag_slots: "La borsa della canna da pesca ottiene 8 spazi ogni 10 livelli di Pesca (8-80 spazi)."
+tf_skill_fishing_bag_weight: "Il contenuto della borsa passa dal peso pieno al livello 0 al {0}% del peso al livello 100."

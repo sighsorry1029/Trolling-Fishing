@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Paina <b>$KEY_Use</b> avataksesi kalastuslaukun."
+tf_fishingrod_multi_line_hint: "Pidä <b>$KEY_SecondaryAttack</b> painettuna heittääksesi useita siimoja."
+tf_fishing_bait_tooltip_header: "Kelpaavat kalat:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Kalastustaso kasvattaa kunkin kalan mahdollisuutta valita lähellä oleva koho perusarvosta vähintään {0}%:iin tasolla 100."
+tf_skill_fishing_extra_drops: "Kalastustaso kertoo lisäsaaliin mahdollisuuden enintään kertoimella x{0} tasolla 100."
+tf_skill_fishing_bag_slots: "Onkivapalaukku saa 8 paikkaa jokaista 10 Kalastustasoa kohden (8-80 paikkaa)."
+tf_skill_fishing_bag_weight: "Onkivapalaukun sisältö painaa täydet 100% tasolla 0 ja {0}% tasolla 100."

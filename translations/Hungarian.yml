@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Nyomd meg a(z) <b>$KEY_Use</b> gombot a horgásztáska megnyitásához."
+tf_fishingrod_multi_line_hint: "Tartsd lenyomva a(z) <b>$KEY_SecondaryAttack</b> gombot több horgászzsinór bedobásához."
+tf_fishing_bait_tooltip_header: "Elfogadja:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "A Horgászat szintje minden hal közeli úszó megcélzásának esélyét az alapesélytől legalább {0}%-ig növeli a 100. szinten."
+tf_skill_fishing_extra_drops: "A Horgászat szintje az extra zsákmány esélyét legfeljebb x{0}-szorosára növeli a 100. szinten."
+tf_skill_fishing_bag_slots: "A horgászbot táskája 10 Horgászat szintenként 8 hellyel bővül (8-80 hely)."
+tf_skill_fishing_bag_weight: "A horgászbot táskájának tartalma a 0. szint teljes súlyáról a 100. szinten {0}% súlyra csökken."

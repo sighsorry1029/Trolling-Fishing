@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "釣りバッグを開くには <b>$KEY_Use</b> を押します。"
+tf_fishingrod_multi_line_hint: "複数の釣り糸を投げるには <b>$KEY_SecondaryAttack</b> を長押しします。"
+tf_fishing_bait_tooltip_header: "有効な魚:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "釣りレベルに応じて、各魚が近くの浮きを狙う確率が基本値から上昇し、レベル100で最低{0}%になります。"
+tf_skill_fishing_extra_drops: "釣りレベルに応じて追加ドロップ率が上昇し、レベル100で最大x{0}になります。"
+tf_skill_fishing_bag_slots: "釣り竿バッグは釣りレベル10ごとに8スロット増加します（8-80スロット）。"
+tf_skill_fishing_bag_weight: "釣り竿バッグの中身の重量は、レベル0の100%からレベル100の{0}%まで減少します。"

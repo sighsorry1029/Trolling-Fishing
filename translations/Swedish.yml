@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Tryck på <b>$KEY_Use</b> för att öppna fiskeväskan."
+tf_fishingrod_multi_line_hint: "Håll ned <b>$KEY_SecondaryAttack</b> för att kasta flera fiskelinor."
+tf_fishing_bait_tooltip_header: "Accepteras av:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Färdighetsnivån i Fiske ökar varje fisks chans att sikta på ett närliggande flöte från grundchansen mot minst {0}% på nivå 100."
+tf_skill_fishing_extra_drops: "Färdighetsnivån i Fiske multiplicerar chansen för extra byte med upp till x{0} på nivå 100."
+tf_skill_fishing_bag_slots: "Fiskespöväskan får 8 platser var 10:e nivå i Fiske (8-80 platser)."
+tf_skill_fishing_bag_weight: "Innehållet i fiskespöväskan går från full vikt på nivå 0 till {0}% vikt på nivå 100."

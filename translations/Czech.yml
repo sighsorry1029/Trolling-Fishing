@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Stiskni <b>$KEY_Use</b> pro otevření rybářské brašny."
+tf_fishingrod_multi_line_hint: "Podrž <b>$KEY_SecondaryAttack</b> pro nahození více rybářských vlasců."
+tf_fishing_bait_tooltip_header: "Přijímají:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Úroveň Rybaření zvyšuje šanci každé ryby zaměřit blízký splávek ze základní hodnoty alespoň k {0}% na úrovni 100."
+tf_skill_fishing_extra_drops: "Úroveň Rybaření násobí šanci na kořist navíc až x{0} na úrovni 100."
+tf_skill_fishing_bag_slots: "Brašna na prut získá 8 míst každých 10 úrovní Rybaření (8-80 míst)."
+tf_skill_fishing_bag_weight: "Obsah brašny na prut přechází z plné hmotnosti na úrovni 0 na {0}% hmotnosti na úrovni 100."

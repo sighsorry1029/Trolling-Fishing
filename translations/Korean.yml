@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "낚시 가방을 열려면 <b>$KEY_Use</b>를 누르세요."
+tf_fishingrod_multi_line_hint: "여러 낚싯줄을 던지려면 <b>$KEY_SecondaryAttack</b>을 길게 누르세요."
+tf_fishing_bait_tooltip_header: "유효한 물고기:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "낚시 레벨에 따라 각 물고기가 근처 찌를 목표로 삼는 확률이 기본 확률에서 증가해 100레벨에는 최소 {0}%가 됩니다."
+tf_skill_fishing_extra_drops: "낚시 레벨에 따라 추가 드랍 확률이 증가해 100레벨에는 최대 x{0}가 됩니다."
+tf_skill_fishing_bag_slots: "낚싯대 가방은 낚시 10레벨마다 슬롯이 8개씩 늘어납니다(8-80칸)."
+tf_skill_fishing_bag_weight: "낚싯대 가방 내용물의 무게는 0레벨의 100%에서 100레벨의 {0}%까지 감소합니다."

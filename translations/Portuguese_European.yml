@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Prime <b>$KEY_Use</b> para abrir a bolsa de pesca."
+tf_fishingrod_multi_line_hint: "Mantém <b>$KEY_SecondaryAttack</b> premido para lançar várias linhas de pesca."
+tf_fishing_bait_tooltip_header: "Aceite por:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "O nível de Pesca aumenta a probabilidade de cada peixe escolher uma bóia próxima, desde a probabilidade base até pelo menos {0}% no nível 100."
+tf_skill_fishing_extra_drops: "O nível de Pesca multiplica a probabilidade de saque extra até x{0} no nível 100."
+tf_skill_fishing_bag_slots: "A bolsa da cana ganha 8 espaços a cada 10 níveis de Pesca (8-80 espaços)."
+tf_skill_fishing_bag_weight: "O conteúdo da bolsa passa do peso total no nível 0 para {0}% do peso no nível 100."

@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Πάτησε <b>$KEY_Use</b> για να ανοίξεις την τσάντα ψαρέματος."
+tf_fishingrod_multi_line_hint: "Κράτησε πατημένο το <b>$KEY_SecondaryAttack</b> για να ρίξεις πολλές πετονιές."
+tf_fishing_bait_tooltip_header: "Γίνεται δεκτό από:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Το επίπεδο Ψαρέματος αυξάνει την πιθανότητα κάθε ψαριού να στοχεύσει κοντινό φελλό από τη βασική τιμή σε τουλάχιστον {0}% στο επίπεδο 100."
+tf_skill_fishing_extra_drops: "Το επίπεδο Ψαρέματος πολλαπλασιάζει την πιθανότητα επιπλέον λαφύρων έως x{0} στο επίπεδο 100."
+tf_skill_fishing_bag_slots: "Η τσάντα καλαμιού κερδίζει 8 θέσεις κάθε 10 επίπεδα Ψαρέματος (8-80 θέσεις)."
+tf_skill_fishing_bag_weight: "Το περιεχόμενο της τσάντας καλαμιού ζυγίζει πλήρως στο επίπεδο 0 και {0}% στο επίπεδο 100."

@@ -1,0 +1,8 @@
+tf_fishingrod_bag_open_hint: "Drücke <b>$KEY_Use</b>, um die Angeltasche zu öffnen."
+tf_fishingrod_multi_line_hint: "Halte <b>$KEY_SecondaryAttack</b> gedrückt, um mehrere Angelschnüre auszuwerfen."
+tf_fishing_bait_tooltip_header: "Akzeptiert von:"
+tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
+tf_skill_fishing_bite_chance: "Die Fertigkeitsstufe Angeln erhöht für jeden Fisch die Chance, einen nahen Schwimmer anzuvisieren, von seiner Grundchance auf mindestens {0}% bei Stufe 100."
+tf_skill_fishing_extra_drops: "Die Fertigkeitsstufe Angeln multipliziert die Chance auf zusätzliche Beute bei Stufe 100 um bis zu x{0}."
+tf_skill_fishing_bag_slots: "Die Angelrutentasche erhält alle 10 Angelstufen 8 Plätze (8-80 Plätze)."
+tf_skill_fishing_bag_weight: "Der Inhalt der Angelrutentasche skaliert von vollem Gewicht bei Stufe 0 auf {0}% Gewicht bei Stufe 100."
