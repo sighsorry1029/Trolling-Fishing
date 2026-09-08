@@ -16,6 +16,7 @@ internal static class FishingLocalization
 {
     internal const string FishingRodBagOpenHintKey = "$tf_fishingrod_bag_open_hint";
     internal const string FishingRodMultiLineHintKey = "$tf_fishingrod_multi_line_hint";
+    internal const string FishingRodMultiLineActionKey = "$tf_fishingrod_multi_line_action";
     internal const string FishingBaitTooltipHeaderKey = "$tf_fishing_bait_tooltip_header";
     internal const string FishingSkillTooltipHeadingKey = "$tf_skill_fishing_heading";
     internal const string FishingSkillTooltipBiteChanceKey = "$tf_skill_fishing_bite_chance";

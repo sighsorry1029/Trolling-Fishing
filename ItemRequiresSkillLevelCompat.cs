@@ -9,19 +9,42 @@ internal static class ItemRequiresSkillLevelCompat
     private const string StartDrawPatchTypeName = "ItemRequiresSkillLevel.Patches+StartDrawPatch";
     private static bool _loggedBypassFailure;
 
-    internal static bool IsLoaded()
-    {
-        return FindType(StartDrawPatchTypeName) != null;
-    }
-
     internal static MethodBase? GetStartDrawPatchMethod()
     {
-        return FindType(StartDrawPatchTypeName)?.GetMethod(
-            "StartDraw",
-            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
-            null,
-            new[] { typeof(Humanoid), typeof(ItemDrop.ItemData) },
-            null);
+        try
+        {
+            Type? patchType = FindType(StartDrawPatchTypeName);
+            if (patchType == null)
+            {
+                TrollingFishingPlugin.LogDebug("ItemRequiresSkillLevel StartDraw compatibility skipped because the optional patch type is not loaded.");
+                return null;
+            }
+
+            MethodInfo? method = patchType.GetMethod(
+                "StartDraw",
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                new[] { typeof(Humanoid), typeof(ItemDrop.ItemData) },
+                null);
+            if (method != null && method.ReturnType == typeof(bool) && !method.ContainsGenericParameters)
+            {
+                ParameterInfo[] parameters = method.GetParameters();
+                if (parameters.Length == 2 &&
+                    parameters[0].ParameterType == typeof(Humanoid) &&
+                    parameters[1].ParameterType == typeof(ItemDrop.ItemData))
+                {
+                    return method;
+                }
+            }
+
+            TrollingFishingPlugin.ModLogger.LogWarning("ItemRequiresSkillLevel StartDraw compatibility skipped: expected static bool StartDraw(Humanoid, ItemDrop.ItemData) was not found.");
+        }
+        catch (Exception exception)
+        {
+            TrollingFishingPlugin.ModLogger.LogWarning($"ItemRequiresSkillLevel StartDraw compatibility skipped because its patch target could not be resolved: {exception.GetBaseException().Message}");
+        }
+
+        return null;
     }
 
     internal static bool TryHandleStartDraw(Humanoid character, ItemDrop.ItemData weapon, ref bool result)
@@ -77,14 +100,23 @@ internal static class ItemRequiresSkillLevelCompat
 [HarmonyPatch]
 internal static class ItemRequiresSkillLevelStartDrawFishingRodBagPatch
 {
+    private static MethodBase? _targetMethod;
+    private static bool _targetResolved;
+
     private static bool Prepare()
     {
-        return ItemRequiresSkillLevelCompat.IsLoaded();
+        if (!_targetResolved)
+        {
+            _targetMethod = ItemRequiresSkillLevelCompat.GetStartDrawPatchMethod();
+            _targetResolved = true;
+        }
+
+        return _targetMethod != null;
     }
 
     private static MethodBase TargetMethod()
     {
-        return ItemRequiresSkillLevelCompat.GetStartDrawPatchMethod()!;
+        return _targetMethod!;
     }
 
     [HarmonyPriority(Priority.First)]

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../FishingRodBagStorage.cs" Link="Production/FishingRodBagStorage.cs" />
+    <Compile Include="../FishingRodBagRules.cs" Link="Production/FishingRodBagRules.cs" />
+    <Compile Include="GameStubs.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+</Project>

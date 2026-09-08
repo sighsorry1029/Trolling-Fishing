@@ -1,5 +1,6 @@
 tf_fishingrod_bag_open_hint: "Press <b>$KEY_Use</b> to open the fishing bag."
 tf_fishingrod_multi_line_hint: "Hold <b>$KEY_SecondaryAttack</b> to cast multiple fishing lines."
+tf_fishingrod_multi_line_action: "Multi-line cast"
 tf_fishing_bait_tooltip_header: "Accepted by:"
 tf_skill_fishing_heading: "<color=orange>TrollingFishing</color>"
 tf_skill_fishing_bite_chance: "Fishing level scales each fish's chance to target a nearby float from its base chance toward at least {0}% at level 100."

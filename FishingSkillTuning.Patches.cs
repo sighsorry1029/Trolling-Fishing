@@ -118,6 +118,16 @@ internal static class FishingSkillTooltipPatch
 {
     private static bool _failureLogged;
 
+    [HarmonyPrefix]
+    [HarmonyPriority(Priority.First)]
+    private static void Prefix(SkillsDialog __instance)
+    {
+        if (__instance != null)
+        {
+            FishingSkillTooltipPositioning.ClearBindings(__instance);
+        }
+    }
+
     [HarmonyPostfix]
     [HarmonyPriority(Priority.Last)]
     [HarmonyAfter("randyknapp.mods.epicloot")]
@@ -168,6 +178,8 @@ internal static class FishingSkillTooltipPatch
             {
                 tooltip.Set(tooltip.m_topic, text, tooltip.m_anchor, tooltip.m_fixedPosition);
             }
+
+            FishingSkillTooltipPositioning.Bind(__instance, tooltip);
         }
         catch (Exception exception)
         {

@@ -106,11 +106,35 @@ internal static partial class FishingOverrideSystem
     private static void CreateFishingRodBagProxy(Player player, ItemDrop.ItemData rod)
     {
         GameObject proxyObject = new("TrollingFishing_FishingRodBagProxy");
-        proxyObject.transform.position = player.transform.position;
-        FishingRodBagProxyContainer proxy = proxyObject.AddComponent<FishingRodBagProxyContainer>();
-        Container container = proxyObject.AddComponent<Container>();
-        proxy.Initialize(player, rod, container);
-        FishingRodBagProxyState.Proxies[rod] = proxy;
+        FishingRodBagProxyContainer? proxy = null;
+        bool initialized = false;
+        try
+        {
+            proxyObject.transform.position = player.transform.position;
+            proxy = proxyObject.AddComponent<FishingRodBagProxyContainer>();
+            Container container = proxyObject.AddComponent<Container>();
+            if (!proxy.Initialize(player, rod, container))
+            {
+                return;
+            }
+
+            FishingRodBagProxyState.Proxies[rod] = proxy;
+            initialized = true;
+        }
+        finally
+        {
+            if (!initialized)
+            {
+                if (proxy != null)
+                {
+                    proxy.CloseAndDestroy();
+                }
+                else
+                {
+                    UnityEngine.Object.Destroy(proxyObject);
+                }
+            }
+        }
     }
 
     private static void RemoveFishingRodBagProxy(ItemDrop.ItemData rod)
@@ -148,15 +172,20 @@ internal static partial class FishingOverrideSystem
         private Container? _container;
         private bool _closed;
 
-        internal void Initialize(Player player, ItemDrop.ItemData rod, Container container)
+        internal bool Initialize(Player player, ItemDrop.ItemData rod, Container container)
         {
             _player = player;
             _rod = rod;
             _container = container;
             container.m_name = "$item_fishingrod";
             container.m_inUse = false;
-            LoadInventory();
+            if (!LoadInventory())
+            {
+                return false;
+            }
+
             AzuCraftyBoxesCompat.AddContainer(container);
+            return true;
         }
 
         internal void SetPlayer(Player player)
@@ -171,14 +200,17 @@ internal static partial class FishingOverrideSystem
                 return;
             }
 
-            LoadInventory();
+            if (!LoadInventory())
+            {
+                RemoveFishingRodBagProxy(_rod);
+            }
         }
 
-        private void LoadInventory()
+        private bool LoadInventory()
         {
             if (_player == null || _rod == null || _container == null)
             {
-                return;
+                return false;
             }
 
             if (_inventory != null)
@@ -188,12 +220,19 @@ internal static partial class FishingOverrideSystem
             }
 
             _inventory = LoadFishingRodBagInventory(_player, _rod, out int width, out int height);
+            if (IsFishingRodBagInventoryLoadFailed(_inventory))
+            {
+                // Keep the failed state until cleanup so the old snapshot cannot overwrite the rod.
+                _container.m_inventory = _inventory;
+                return false;
+            }
 
             _inventory.m_onChanged += Save;
             RegisterFishingRodBagInventory(_inventory, _rod);
             _container.m_width = width;
             _container.m_height = height;
             _container.m_inventory = _inventory;
+            return true;
         }
 
         private void Update()
@@ -221,8 +260,14 @@ internal static partial class FishingOverrideSystem
                 return;
             }
 
-            Cleanup();
-            Destroy(gameObject);
+            try
+            {
+                Cleanup();
+            }
+            finally
+            {
+                Destroy(gameObject);
+            }
         }
 
         private void OnDestroy()
@@ -238,16 +283,34 @@ internal static partial class FishingOverrideSystem
             }
 
             _closed = true;
-            Save();
-            if (_inventory != null)
+            try
             {
-                _inventory.m_onChanged -= Save;
-                UnregisterFishingRodBagInventory(_inventory);
+                Save();
             }
-
-            if (_container != null)
+            finally
             {
-                AzuCraftyBoxesCompat.RemoveContainer(_container);
+                if (_rod != null &&
+                    FishingRodBagProxyState.Proxies.TryGetValue(_rod, out FishingRodBagProxyContainer proxy) &&
+                    ReferenceEquals(proxy, this))
+                {
+                    FishingRodBagProxyState.Proxies.Remove(_rod);
+                }
+
+                if (_inventory != null)
+                {
+                    _inventory.m_onChanged -= Save;
+                    if (!IsFishingRodBagInventoryLoadFailed(_inventory))
+                    {
+                        UnregisterFishingRodBagInventory(_inventory);
+                    }
+
+                    _inventory = null;
+                }
+
+                if (_container != null)
+                {
+                    AzuCraftyBoxesCompat.RemoveContainer(_container);
+                }
             }
         }
     }

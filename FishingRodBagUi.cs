@@ -16,6 +16,10 @@ internal static class FishingRodBagUiState
 
 internal static partial class FishingOverrideSystem
 {
+    private static Type? _fishingRodBagGridElementType;
+    private static FieldInfo? _fishingRodBagGridElementPositionField;
+    private static FieldInfo? _fishingRodBagGridElementEquippedField;
+
     internal static void UpdateFishingRodBagSelectedBaitVisual(InventoryGrid grid, Inventory inventory)
     {
         if (grid == null ||
@@ -26,20 +30,29 @@ internal static partial class FishingOverrideSystem
             return;
         }
 
-        HashSet<string> selectedPrefabNames = new(StringComparer.OrdinalIgnoreCase);
-        if (rod.m_customData.TryGetValue(FishingRodBagStoreState.BagSelectedBaitKey, out string selectedBaitPrefabName) &&
-            !string.IsNullOrWhiteSpace(selectedBaitPrefabName))
-        {
-            selectedPrefabNames.Add(selectedBaitPrefabName);
-        }
+        string? selectedBaitPrefabName =
+            rod.m_customData.TryGetValue(FishingRodBagStoreState.BagSelectedBaitKey, out string selectedName) &&
+            !string.IsNullOrWhiteSpace(selectedName)
+                ? selectedName
+                : null;
 
         foreach (object element in elements)
         {
+            if (element == null)
+            {
+                continue;
+            }
+
             Type elementType = element.GetType();
-            FieldInfo? positionField = AccessTools.Field(elementType, "m_pos");
-            FieldInfo? equippedField = AccessTools.Field(elementType, "m_equiped");
-            if (positionField?.GetValue(element) is not Vector2i position ||
-                equippedField?.GetValue(element) is not Image equippedImage)
+            if (_fishingRodBagGridElementType != elementType)
+            {
+                _fishingRodBagGridElementType = elementType;
+                _fishingRodBagGridElementPositionField = AccessTools.Field(elementType, "m_pos");
+                _fishingRodBagGridElementEquippedField = AccessTools.Field(elementType, "m_equiped");
+            }
+
+            if (_fishingRodBagGridElementPositionField?.GetValue(element) is not Vector2i position ||
+                _fishingRodBagGridElementEquippedField?.GetValue(element) is not Image equippedImage)
             {
                 continue;
             }
@@ -57,7 +70,7 @@ internal static partial class FishingOverrideSystem
                 continue;
             }
 
-            equippedImage.enabled = selectedPrefabNames.Contains(itemName!);
+            equippedImage.enabled = string.Equals(selectedBaitPrefabName, itemName, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -162,7 +175,7 @@ internal static partial class FishingOverrideSystem
         if (TrollingFishingPlugin.FishingRodMultiLine != null &&
             TrollingFishingPlugin.FishingRodMultiLine.Value.IsOn())
         {
-            hints.Add(FishingLocalization.Localize(FishingLocalization.FishingRodMultiLineHintKey));
+            hints.Add(FishingRodInputIcons.LocalizeMultiLineHint());
         }
 
         if (hints.Count > 0)
@@ -174,14 +187,40 @@ internal static partial class FishingOverrideSystem
     private static void OpenFishingRodBag(Player player, ItemDrop.ItemData rod)
     {
         FishingRodBagUiState.OpenRods.Add(rod);
-        RemoveFishingRodBagProxy(rod);
-        GameObject bagObject = new("TrollingFishing_FishingRodBag");
-        bagObject.transform.position = player.transform.position;
-        FishingRodBagContainer bag = bagObject.AddComponent<FishingRodBagContainer>();
-        Container container = bagObject.AddComponent<Container>();
-        bag.Initialize(player, rod, container);
-        InventoryGui.instance.Show(container, 1);
-        ZInput.ResetButtonStatus("Use");
+        GameObject? bagObject = null;
+        FishingRodBagContainer? bag = null;
+        bool opened = false;
+        try
+        {
+            RemoveFishingRodBagProxy(rod);
+            bagObject = new GameObject("TrollingFishing_FishingRodBag");
+            bagObject.transform.position = player.transform.position;
+            bag = bagObject.AddComponent<FishingRodBagContainer>();
+            Container container = bagObject.AddComponent<Container>();
+            if (!bag.Initialize(player, rod, container))
+            {
+                return;
+            }
+
+            InventoryGui.instance.Show(container, 1);
+            opened = true;
+        }
+        finally
+        {
+            ZInput.ResetButtonStatus("Use");
+            if (!opened)
+            {
+                FishingRodBagUiState.OpenRods.Remove(rod);
+                if (bag != null)
+                {
+                    bag.CloseAndDestroy();
+                }
+                else if (bagObject != null)
+                {
+                    UnityEngine.Object.Destroy(bagObject);
+                }
+            }
+        }
     }
 
     private static bool TryCloseFishingRodBagFromInput()
@@ -244,12 +283,16 @@ internal static partial class FishingOverrideSystem
         private Container? _container;
         private bool _closed;
 
-        internal void Initialize(Player player, ItemDrop.ItemData rod, Container container)
+        internal bool Initialize(Player player, ItemDrop.ItemData rod, Container container)
         {
             _player = player;
             _rod = rod;
             _container = container;
             _inventory = LoadFishingRodBagInventory(player, rod, out int width, out int height);
+            if (IsFishingRodBagInventoryLoadFailed(_inventory))
+            {
+                return false;
+            }
 
             _inventory.m_onChanged += Save;
             RegisterFishingRodBagInventory(_inventory, rod);
@@ -260,6 +303,7 @@ internal static partial class FishingOverrideSystem
             container.m_inUse = true;
             AzuCraftyBoxesCompat.AddContainer(container);
             Save();
+            return true;
         }
 
         private void Update()
@@ -291,8 +335,19 @@ internal static partial class FishingOverrideSystem
 
         internal void CloseAndDestroy()
         {
-            Cleanup();
-            Destroy(gameObject);
+            if (_closed)
+            {
+                return;
+            }
+
+            try
+            {
+                Cleanup();
+            }
+            finally
+            {
+                Destroy(gameObject);
+            }
         }
 
         private void OnDestroy()
@@ -308,21 +363,32 @@ internal static partial class FishingOverrideSystem
             }
 
             _closed = true;
-            Save();
-            if (_rod != null)
+            try
             {
-                FishingRodBagUiState.OpenRods.Remove(_rod);
+                Save();
             }
-
-            if (_inventory != null)
+            finally
             {
-                _inventory.m_onChanged -= Save;
-                UnregisterFishingRodBagInventory(_inventory);
-            }
+                if (_rod != null)
+                {
+                    FishingRodBagUiState.OpenRods.Remove(_rod);
+                }
 
-            if (_container != null)
-            {
-                AzuCraftyBoxesCompat.RemoveContainer(_container);
+                if (_inventory != null)
+                {
+                    _inventory.m_onChanged -= Save;
+                    if (!IsFishingRodBagInventoryLoadFailed(_inventory))
+                    {
+                        UnregisterFishingRodBagInventory(_inventory);
+                    }
+
+                    _inventory = null;
+                }
+
+                if (_container != null)
+                {
+                    AzuCraftyBoxesCompat.RemoveContainer(_container);
+                }
             }
         }
     }

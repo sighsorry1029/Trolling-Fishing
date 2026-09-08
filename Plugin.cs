@@ -15,7 +15,7 @@ namespace TrollingFishing;
 public class TrollingFishingPlugin : BaseUnityPlugin
 {
     internal const string ModName = "TrollingFishing";
-    internal const string ModVersion = "1.1.0";
+    internal const string ModVersion = "1.1.1";
     internal const string Author = "sighsorry";
     internal const int FishingRodMultiLineMinCount = 2;
     internal const int FishingRodMultiLineMaxCount = 10;
@@ -103,6 +103,7 @@ public class TrollingFishingPlugin : BaseUnityPlugin
         SaveWithRespectToConfigSet();
         _watcher?.Dispose();
         _baitConfigWatcher?.Dispose();
+        FishingRodKeyHintSystem.Shutdown();
         _harmony.UnpatchSelf();
         FishingLocalization.Shutdown();
     }

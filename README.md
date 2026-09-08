@@ -181,6 +181,18 @@ Fishing Rod Multi Line Extra Skill Raise Factor = 0.5
 
 ```
 
+## Building
+
+The project uses the Valheim, BepInEx, and publicized game assemblies configured in `environment.props`. For local development, build Debug and copy the final merged DLL to the configured game plugin folder:
+
+```powershell
+dotnet build TrollingFishing.csproj -c Debug -p:DeployToGame=true
+```
+
+Use `-p:DeployToGame=false` to skip installation. The older `InstallToGame` property remains a fallback when `DeployToGame` is omitted. Debug builds do not create release packages. Only for an explicitly requested release, use a Release build with `-p:CreatePackages=true` on Windows to update the manifest version and create the Thunderstore and Nexus ZIPs. Packaging does not require installation.
+
+Run the managed storage regression checks with `dotnet run --project Tests/TrollingFishing.RegressionTests.csproj -c Release`. They compile the production storage and rule code against game API stubs; see [Tests/README.md](Tests/README.md) for coverage and the required in-game checks.
+
 ## Notes
 
 - This mod targets the vanilla `FishingRod` prefab.

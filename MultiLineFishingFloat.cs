@@ -107,57 +107,57 @@ internal static partial class FishingOverrideSystem
         return MultiLineFishingCastState.SetupContexts.Count > 0 ? MultiLineFishingCastState.SetupContexts[MultiLineFishingCastState.SetupContexts.Count - 1] : MultiLineFishingSetupContext.Empty;
     }
 
-    internal static bool TrySuppressMultiLineFishingFloatInitialUpdate(FishingFloat fishingFloat)
+    internal static bool PrepareMultiLineFishingFloatUpdate(FishingFloat fishingFloat, out int? previousContextDepth)
     {
+        previousContextDepth = null;
         if (fishingFloat == null)
         {
-            return false;
+            return true;
         }
 
         MultiLineFishingFloatMarker marker = fishingFloat.GetComponent<MultiLineFishingFloatMarker>();
         if (marker == null)
         {
-            return false;
+            return true;
         }
 
         if (marker.ShouldSkipAttackCancellation())
         {
+            return false;
+        }
+
+        if (!marker.IsAdditionalLine)
+        {
             return true;
         }
 
-        return false;
+        Character owner = marker.Owner ?? fishingFloat.GetOwner();
+        if (owner == null)
+        {
+            return true;
+        }
+
+        previousContextDepth = MultiLineFishingCastState.UpdateContexts.Count;
+        MultiLineFishingCastState.UpdateContexts.Add(new MultiLineFishingUpdateContext(
+            owner,
+            Mathf.Max(0f, TrollingFishingPlugin.FishingRodMultiLineExtraPullStaminaFactor.Value),
+            Mathf.Max(0f, TrollingFishingPlugin.FishingRodMultiLineSkillRaiseFactor.Value)));
+        return true;
+    }
+
+    internal static void RestoreMultiLineFishingFloatUpdate(int? previousContextDepth)
+    {
+        // A skipped Prefix leaves null; nested calls must preserve their caller's context.
+        if (previousContextDepth is int depth && MultiLineFishingCastState.UpdateContexts.Count > depth)
+        {
+            MultiLineFishingCastState.UpdateContexts.RemoveRange(depth, MultiLineFishingCastState.UpdateContexts.Count - depth);
+        }
     }
 
     internal static bool TrySuppressMultiLineFishingFindFloat(out FishingFloat result)
     {
         result = null!;
         return IsMultiLineFishingSetupActive();
-    }
-
-    internal static IDisposable? BeginAdditionalMultiLineFishingFloatUpdate(FishingFloat fishingFloat)
-    {
-        if (fishingFloat == null)
-        {
-            return null;
-        }
-
-        MultiLineFishingFloatMarker marker = fishingFloat.GetComponent<MultiLineFishingFloatMarker>();
-        if (marker == null || !marker.IsAdditionalLine)
-        {
-            return null;
-        }
-
-        Character owner = marker.Owner ?? fishingFloat.GetOwner();
-        if (owner == null)
-        {
-            return null;
-        }
-
-        MultiLineFishingCastState.UpdateContexts.Add(new MultiLineFishingUpdateContext(
-            owner,
-            Mathf.Max(0f, TrollingFishingPlugin.FishingRodMultiLineExtraPullStaminaFactor.Value),
-            Mathf.Max(0f, TrollingFishingPlugin.FishingRodMultiLineSkillRaiseFactor.Value)));
-        return new MultiLineFishingUpdateScope();
     }
 
     internal static void AdjustMultiLineFishingStaminaUse(Character character, ref float stamina)
@@ -749,17 +749,6 @@ internal static partial class FishingOverrideSystem
             if (_attack != null)
             {
                 BaitSourceTrackerState.AttackSources.Remove(_attack);
-            }
-        }
-    }
-
-    private sealed class MultiLineFishingUpdateScope : IDisposable
-    {
-        public void Dispose()
-        {
-            if (MultiLineFishingCastState.UpdateContexts.Count > 0)
-            {
-                MultiLineFishingCastState.UpdateContexts.RemoveAt(MultiLineFishingCastState.UpdateContexts.Count - 1);
             }
         }
     }

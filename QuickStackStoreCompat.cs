@@ -104,15 +104,11 @@ internal static class QuickStackStoreCompat
 
     internal static MethodInfo? GetSortContainerMethod()
     {
-        return FindStaticMethod("SortContainer");
+        Type? sortModuleType = FindType(SortModuleTypeName);
+        return sortModuleType == null ? null : FindStaticMethod(sortModuleType, "SortContainer", typeof(Container));
     }
 
     internal static MethodInfo? GetSortInternalMethod()
-    {
-        return FindStaticMethod("SortInternal");
-    }
-
-    private static MethodInfo? FindStaticMethod(string methodName)
     {
         Type? sortModuleType = FindType(SortModuleTypeName);
         if (sortModuleType == null)
@@ -120,9 +116,47 @@ internal static class QuickStackStoreCompat
             return null;
         }
 
+        Type? userConfigType = sortModuleType.Assembly.GetType("QuickStackStore.UserConfig", throwOnError: false, ignoreCase: false);
+        if (userConfigType != null)
+        {
+            MethodInfo? method = FindStaticMethod(sortModuleType, "SortInternal", typeof(Inventory), userConfigType);
+            if (method != null)
+            {
+                return method;
+            }
+        }
+
+        return FindStaticMethod(sortModuleType, "SortInternal", typeof(Inventory));
+    }
+
+    private static MethodInfo? FindStaticMethod(Type sortModuleType, string methodName, params Type[] parameterTypes)
+    {
         foreach (MethodInfo method in sortModuleType.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
         {
-            if (string.Equals(method.Name, methodName, StringComparison.Ordinal))
+            if (!string.Equals(method.Name, methodName, StringComparison.Ordinal) ||
+                method.ReturnType != typeof(void) ||
+                method.ContainsGenericParameters)
+            {
+                continue;
+            }
+
+            ParameterInfo[] parameters = method.GetParameters();
+            if (parameters.Length != parameterTypes.Length)
+            {
+                continue;
+            }
+
+            bool matches = true;
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                if (parameters[i].ParameterType != parameterTypes[i])
+                {
+                    matches = false;
+                    break;
+                }
+            }
+
+            if (matches)
             {
                 return method;
             }
@@ -149,14 +183,17 @@ internal static class QuickStackStoreCompat
 [HarmonyPatch]
 internal static class QuickStackStoreSortFishingRodBagPatch
 {
+    private static MethodBase? _targetMethod;
+
     private static bool Prepare()
     {
-        return QuickStackStoreCompat.GetSortContainerMethod() != null;
+        _targetMethod ??= QuickStackStoreCompat.GetSortContainerMethod();
+        return _targetMethod != null;
     }
 
     private static MethodBase TargetMethod()
     {
-        return QuickStackStoreCompat.GetSortContainerMethod()!;
+        return _targetMethod!;
     }
 
     private static bool Prefix(Container container)

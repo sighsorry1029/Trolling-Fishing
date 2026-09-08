@@ -12,11 +12,13 @@ internal sealed class FishingRodBagInventoryState
 {
     internal readonly List<ItemDrop.ItemData> OverflowItems;
     internal readonly int VisibleSlots;
+    internal readonly bool LoadFailed;
 
-    internal FishingRodBagInventoryState(List<ItemDrop.ItemData> overflowItems, int visibleSlots)
+    internal FishingRodBagInventoryState(List<ItemDrop.ItemData> overflowItems, int visibleSlots, bool loadFailed = false)
     {
         OverflowItems = overflowItems;
         VisibleSlots = visibleSlots;
+        LoadFailed = loadFailed;
     }
 }
 
@@ -112,6 +114,13 @@ internal static partial class FishingOverrideSystem
             FishingRodBagStoreState.InventoryOwners.Remove(inventory);
             FishingRodBagStoreState.InventoryStates.Remove(inventory);
         }
+    }
+
+    internal static bool IsFishingRodBagInventoryLoadFailed(Inventory inventory)
+    {
+        return inventory != null &&
+               FishingRodBagStoreState.InventoryStates.TryGetValue(inventory, out FishingRodBagInventoryState state) &&
+               state.LoadFailed;
     }
 
     internal static bool IsFishingRodBagContainer(Container container)
@@ -263,7 +272,7 @@ internal static partial class FishingOverrideSystem
 
     private static bool TryAddItemToFishingRodBagInventory(Inventory inventory, ItemDrop.ItemData item)
     {
-        if (inventory == null || !IsAllowedFishingRodBagItem(item))
+        if (inventory == null || IsFishingRodBagInventoryLoadFailed(inventory) || !IsAllowedFishingRodBagItem(item))
         {
             return false;
         }
@@ -277,7 +286,7 @@ internal static partial class FishingOverrideSystem
         int slots = ResolveTargetSlotCount(player);
         ResolveGridSize(slots, out width, out height);
         Inventory inventory = CreateFishingRodBagInventory(rod, width, height);
-        if (rod.m_customData.TryGetValue(FishingRodBagStoreState.BagDataKey, out string rawData) && !string.IsNullOrWhiteSpace(rawData))
+        if (rod.m_customData.TryGetValue(FishingRodBagStoreState.BagDataKey, out string rawData))
         {
             LoadFishingRodBagVisibleInventory(rod, inventory, rawData, slots);
         }
@@ -291,6 +300,11 @@ internal static partial class FishingOverrideSystem
 
     private static void SaveFishingRodBagInventory(ItemDrop.ItemData rod, Inventory inventory, bool refreshProxy = true)
     {
+        if (IsFishingRodBagInventoryLoadFailed(inventory))
+        {
+            return;
+        }
+
         List<ItemDrop.ItemData> allItems = CollectFishingRodBagStoredItems(inventory);
         SaveFishingRodBagStoredItems(rod, allItems);
         if (refreshProxy)
@@ -337,7 +351,23 @@ internal static partial class FishingOverrideSystem
         inventory = CreateFishingRodBagInventory(rod, width, height);
         try
         {
-            inventory.Load(new ZPackage(rawData));
+            ZPackage package = new(rawData);
+            int version = package.ReadInt();
+            int itemCount = package.ReadInt();
+            if (version < 100 || version > 106 || itemCount < 0 || itemCount > FishingRodBagStoreState.MaxSlots)
+            {
+                throw new InvalidOperationException("Unsupported FishingRod bag data version or item count.");
+            }
+
+            package.SetPos(0);
+            inventory.Load(package);
+            // Inventory.Load silently skips missing prefabs and failed additions. A partial
+            // inventory must never become the next saved representation of the original bag.
+            if (inventory.GetAllItems().Count != itemCount || package.GetPos() != package.Size())
+            {
+                throw new InvalidOperationException("FishingRod bag data could not be loaded completely.");
+            }
+
             return true;
         }
         catch (Exception exception)
@@ -351,7 +381,7 @@ internal static partial class FishingOverrideSystem
     {
         if (!TryLoadFishingRodBagInventorySnapshot(rod, rawData, out Inventory storedInventory))
         {
-            SetFishingRodBagInventoryState(visibleInventory, new FishingRodBagInventoryState(new List<ItemDrop.ItemData>(), visibleSlots));
+            SetFishingRodBagInventoryState(visibleInventory, new FishingRodBagInventoryState(new List<ItemDrop.ItemData>(), visibleSlots, loadFailed: true));
             return;
         }
 
@@ -402,12 +432,11 @@ internal static partial class FishingOverrideSystem
         List<ItemDrop.ItemData> allItems = inventory.GetAllItems()
             .OrderBy(item => item.m_gridPos.y)
             .ThenBy(item => item.m_gridPos.x)
-            .Select(CloneFishingRodBagItem)
             .ToList();
 
         if (FishingRodBagStoreState.InventoryStates.TryGetValue(inventory, out FishingRodBagInventoryState state))
         {
-            allItems.AddRange(state.OverflowItems.Select(CloneFishingRodBagItem));
+            allItems.AddRange(state.OverflowItems);
         }
 
         return allItems;
@@ -415,6 +444,11 @@ internal static partial class FishingOverrideSystem
 
     private static void SaveFishingRodBagStoredItems(ItemDrop.ItemData rod, List<ItemDrop.ItemData> allItems)
     {
+        if (allItems.Count > FishingRodBagStoreState.MaxSlots)
+        {
+            throw new InvalidOperationException("FishingRod bag has more items than can be stored; existing data was preserved.");
+        }
+
         ResolveGridSize(FishingRodBagStoreState.MaxSlots, out int width, out int height);
         Inventory storageInventory = CreateFishingRodBagInventory(rod, width, height);
         HashSet<Vector2i> occupied = new();
@@ -426,7 +460,7 @@ internal static partial class FishingOverrideSystem
             {
                 if (!TryFindNextFreeFishingRodBagSlot(storageInventory, occupied, out Vector2i slot))
                 {
-                    break;
+                    throw new InvalidOperationException("FishingRod bag has no free storage slot; existing data was preserved.");
                 }
 
                 copy.m_gridPos = slot;
@@ -446,8 +480,10 @@ internal static partial class FishingOverrideSystem
 
         ZPackage package = new();
         storageInventory.Save(package);
-        rod.m_customData[FishingRodBagStoreState.BagDataKey] = package.GetBase64();
-        SetFishingRodBagWeightCache(rod, CalculateFishingRodBagWeight(storedItems));
+        string rawData = package.GetBase64();
+        float weight = CalculateFishingRodBagWeight(storedItems);
+        rod.m_customData[FishingRodBagStoreState.BagDataKey] = rawData;
+        SetFishingRodBagWeightCache(rod, weight);
     }
 
     private static float CalculateFishingRodBagWeight(IEnumerable<ItemDrop.ItemData> items)

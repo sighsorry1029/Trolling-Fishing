@@ -41,21 +41,14 @@ internal static class ProjectileSetupBaitReturnSourcePatch
 [HarmonyPatch(typeof(FishingFloat), nameof(FishingFloat.FixedUpdate))]
 internal static class FishingFloatFixedUpdateMultiLineFishingPatch
 {
-    private static bool Prefix(FishingFloat __instance, out IDisposable? __state)
+    private static bool Prefix(FishingFloat __instance, out int? __state)
     {
-        __state = null;
-        if (FishingOverrideSystem.TrySuppressMultiLineFishingFloatInitialUpdate(__instance))
-        {
-            return false;
-        }
-
-        __state = FishingOverrideSystem.BeginAdditionalMultiLineFishingFloatUpdate(__instance);
-        return true;
+        return FishingOverrideSystem.PrepareMultiLineFishingFloatUpdate(__instance, out __state);
     }
 
-    private static Exception? Finalizer(Exception? __exception, IDisposable? __state)
+    private static Exception? Finalizer(Exception? __exception, int? __state)
     {
-        __state?.Dispose();
+        FishingOverrideSystem.RestoreMultiLineFishingFloatUpdate(__state);
         return __exception;
     }
 }

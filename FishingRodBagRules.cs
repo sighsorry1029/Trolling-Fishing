@@ -34,12 +34,14 @@ internal static partial class FishingOverrideSystem
 
     internal static bool CanAddToFishingRodBag(Inventory inventory, ItemDrop.ItemData item)
     {
-        return !IsFishingRodBagInventory(inventory) || IsAllowedFishingRodBagItem(item);
+        return !IsFishingRodBagInventoryLoadFailed(inventory) &&
+               (!IsFishingRodBagInventory(inventory) || IsAllowedFishingRodBagItem(item));
     }
 
     internal static bool CanAddToFishingRodBag(Inventory inventory, GameObject itemPrefab)
     {
-        return !IsFishingRodBagInventory(inventory) || IsAllowedFishingRodBagPrefab(itemPrefab);
+        return !IsFishingRodBagInventoryLoadFailed(inventory) &&
+               (!IsFishingRodBagInventory(inventory) || IsAllowedFishingRodBagPrefab(itemPrefab));
     }
 
 
