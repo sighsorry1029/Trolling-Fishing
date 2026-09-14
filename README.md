@@ -35,6 +35,7 @@ Check out fishing 10 lines
 ### FishingRod bag
 
 - Hover a FishingRod in the player inventory and press the Use key to open its fishing bag.
+- With EpicLoot 0.14.5 installed, Use opens the fishing bag before EpicLoot handles the key. Hold EpicLoot's configured Socket Overlay Modifier (normally LeftAlt) with Use for its socket UI. Confirmation prompts retain control; switching from sockets to the bag closes and saves sockets first. Keep NewtonsoftJsonDetector installed. Fishing rod hints retain their original orange color with EpicLoot installed.
 - The bag is saved on the rod item itself.
 - The bag accepts fish, fishing bait, and supported FishChum items.
 - Caught fish try to go into the equipped FishingRod bag first.
@@ -183,7 +184,7 @@ Fishing Rod Multi Line Extra Skill Raise Factor = 0.5
 
 ## Building
 
-The project uses the Valheim, BepInEx, and publicized game assemblies configured in `environment.props`. For local development, build Debug and copy the final merged DLL to the configured game plugin folder:
+The project targets Valheim 1.0.7 and uses original, unmodified game assemblies and BepInEx configured in `environment.props`. Private game members are accessed through cached Harmony accessors. ServerSync is pinned in `Libs/`; see [Libs/README.md](Libs/README.md) for its source and hash. For local development, build Debug to automatically copy the final merged DLL to the configured game plugin folder:
 
 ```powershell
 dotnet build TrollingFishing.csproj -c Debug -p:DeployToGame=true
@@ -197,5 +198,6 @@ Run the managed storage regression checks with `dotnet run --project Tests/Troll
 
 - This mod targets the vanilla `FishingRod` prefab.
 - FishingRod bag data is stored in the rod item's custom data.
+- This build reads and writes Valheim 1.0.7 inventory format 109. Rods containing older or unreadable bag data keep their raw data and cached weight, but their bags cannot be modified. This build does not convert old bag data; empty bags in the previous game/mod version before upgrading.
 - If a FishingRod bag shrinks, overflow items remain stored on the rod instead of being deleted.
 - AzuCraftyBoxes integration is optional; the fishing bag works without it.

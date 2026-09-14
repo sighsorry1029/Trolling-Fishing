@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -178,7 +178,7 @@ internal static partial class FishingOverrideSystem
             _rod = rod;
             _container = container;
             container.m_name = "$item_fishingrod";
-            container.m_inUse = false;
+            FishingGameAccess.ContainerInUse(container) = false;
             if (!LoadInventory())
             {
                 return false;
@@ -223,7 +223,7 @@ internal static partial class FishingOverrideSystem
             if (IsFishingRodBagInventoryLoadFailed(_inventory))
             {
                 // Keep the failed state until cleanup so the old snapshot cannot overwrite the rod.
-                _container.m_inventory = _inventory;
+                FishingGameAccess.ContainerInventory(_container) = _inventory;
                 return false;
             }
 
@@ -231,7 +231,7 @@ internal static partial class FishingOverrideSystem
             RegisterFishingRodBagInventory(_inventory, _rod);
             _container.m_width = width;
             _container.m_height = height;
-            _container.m_inventory = _inventory;
+            FishingGameAccess.ContainerInventory(_container) = _inventory;
             return true;
         }
 

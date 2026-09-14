@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -94,20 +94,20 @@ internal static partial class FishingOverrideSystem
     {
         result = true;
         ammoItem = null!;
-        if (TrollingFishingPlugin.FishingRodBag.Value.IsOff() ||
-            attack?.m_character is not Player player ||
-            !IsFishingRod(attack.m_weapon) ||
-            string.IsNullOrWhiteSpace(attack.m_weapon.m_shared.m_ammoType) ||
-            TryFindEquippedInventoryAmmo(player, attack.m_weapon.m_shared.m_ammoType, out _) ||
-            !TryFindFishingRodBagAmmo(player, attack.m_weapon, attack.m_weapon.m_shared.m_ammoType, out ItemDrop.ItemData bagAmmo))
+        if (TrollingFishingPlugin.FishingRodBag.Value.IsOff() || attack == null ||
+            FishingGameAccess.AttackCharacter(attack) is not Player player ||
+            !IsFishingRod(attack.GetWeapon()) ||
+            string.IsNullOrWhiteSpace(attack.GetWeapon().m_shared.m_ammoType) ||
+            TryFindEquippedInventoryAmmo(player, attack.GetWeapon().m_shared.m_ammoType, out _) ||
+            !TryFindFishingRodBagAmmo(player, attack.GetWeapon(), attack.GetWeapon().m_shared.m_ammoType, out ItemDrop.ItemData bagAmmo))
         {
             return false;
         }
 
-        Inventory inventory = LoadFishingRodBagInventory(player, attack.m_weapon, out _, out _);
+        Inventory inventory = LoadFishingRodBagInventory(player, attack.GetWeapon(), out _, out _);
         ItemDrop.ItemData ammoInBag = inventory.GetAllItems().FirstOrDefault(item =>
-            IsMatchingAmmo(item, attack.m_weapon.m_shared.m_ammoType) &&
-            item.m_dropPrefab == bagAmmo.m_dropPrefab) ?? inventory.GetAmmoItem(attack.m_weapon.m_shared.m_ammoType);
+            IsMatchingAmmo(item, attack.GetWeapon().m_shared.m_ammoType) &&
+            item.m_dropPrefab == bagAmmo.m_dropPrefab) ?? inventory.GetAmmoItem(attack.GetWeapon().m_shared.m_ammoType);
         if (ammoInBag == null)
         {
             return false;
@@ -126,10 +126,10 @@ internal static partial class FishingOverrideSystem
             inventory.RemoveItem(ammoInBag, 1);
         }
 
-        SaveFishingRodBagInventory(attack.m_weapon, inventory);
-        RegisterAttackBaitReturnSource(attack, player, attack.m_weapon, bagAmmo);
+        SaveFishingRodBagInventory(attack.GetWeapon(), inventory);
+        RegisterAttackBaitReturnSource(attack, player, attack.GetWeapon(), bagAmmo);
         ammoItem = bagAmmo;
-        attack.m_ammoItem = bagAmmo;
+        FishingGameAccess.AttackAmmo(attack) = bagAmmo;
         return true;
     }
 
@@ -294,7 +294,7 @@ internal static partial class FishingOverrideSystem
 
         if (changed)
         {
-            inventory.Changed();
+            inventory.NotifyChanged();
         }
     }
 
@@ -324,7 +324,7 @@ internal static partial class FishingOverrideSystem
 
         if (changed)
         {
-            playerInventory.Changed();
+            playerInventory.NotifyChanged();
             TrollingFishingPlugin.LogDebug("[Fishing bag] cleared selected bag bait because an inventory bait was equipped.");
         }
     }
@@ -332,7 +332,7 @@ internal static partial class FishingOverrideSystem
     private static void NotifyFishingRodBagBaitSelectionChanged(Player player, ItemDrop.ItemData rod)
     {
         RefreshOpenFishingRodBagBaitVisuals(rod);
-        player?.GetInventory()?.Changed();
+        player?.GetInventory()?.NotifyChanged();
     }
 
     private static void RefreshOpenFishingRodBagBaitVisuals(ItemDrop.ItemData rod)

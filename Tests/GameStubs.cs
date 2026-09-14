@@ -111,6 +111,7 @@ public class ObjectDB
     public static ObjectDB instance = new();
     public readonly List<GameObject> m_items = new();
     public GameObject GetItemPrefab(string name) => m_items.FirstOrDefault(item => item.name == name);
+    public GameObject GetItemPrefab(int hash) => m_items.FirstOrDefault(item => TestPrefabHash.Of(item.name) == hash);
 }
 public class ItemDrop : Component
 {
@@ -140,6 +141,24 @@ public class ItemDrop : Component
             if (ThrowOnWeight) throw new InvalidOperationException("Injected item weight failure.");
             return m_shared.m_weight * m_stack * (1 + (m_quality - 1) * m_shared.m_scaleWeightByQuality);
         }
+        public static (int prefabHash, ItemData itemData) Load(ZPackage package, Version.Item version)
+        {
+            ItemData item = new();
+            _ = package.ReadInt();
+            item.m_gridPos = new(package.ReadByte(), package.ReadByte());
+            item.m_worldLevel = package.ReadByte();
+            byte flags = package.ReadByte();
+            item.m_quality = (flags & 4) != 0 ? package.ReadUShort() : 1;
+            item.m_stack = (flags & 8) != 0 ? package.ReadUShort() : 1;
+            if ((flags & 16) != 0) _ = package.ReadInt();
+            if ((flags & 32) != 0) { _ = package.ReadLong(); _ = package.ReadString(); }
+            int hash = (flags & 64) != 0 ? package.ReadInt() : 0;
+            int count = (flags & 128) != 0 ? package.ReadByte() : 0;
+            // Tests use small dictionaries. Real extended counts are covered by the original-DLL check.
+            for (int i = 0; i < count; i++) item.m_customData[package.ReadString()] = package.ReadString();
+            _ = package.ReadByte();
+            return (hash, item);
+        }
         public enum ItemType { Material, Fish }
         public class SharedData
         {
@@ -153,7 +172,7 @@ public class ItemDrop : Component
 }
 
 // BinaryReader/Writer model the package primitives exercised here. The inventory double
-// reads the game's documented-by-local-decompilation 100..106 field order, but only keeps
+// reads the game's format-109 field order inspected in original DLLs, but only keeps
 // fields needed by these storage tests. It deliberately skips unknown item prefabs, as the
 // installed game's Inventory.Load does, so production must reject the partial result.
 public class ZPackage
@@ -172,12 +191,16 @@ public class ZPackage
         _writer = new(_stream);
     }
     public int ReadInt() => _reader.ReadInt32();
+    public ushort ReadUShort() => _reader.ReadUInt16();
+    public byte ReadByte() => _reader.ReadByte();
     public float ReadSingle() => _reader.ReadSingle();
     public Vector2i ReadVector2i() => new(ReadInt(), ReadInt());
     public bool ReadBool() => _reader.ReadBoolean();
     public long ReadLong() => _reader.ReadInt64();
     public string ReadString() => _reader.ReadString();
     public void Write(int value) => _writer.Write(value);
+    public void Write(ushort value) => _writer.Write(value);
+    public void Write(byte value) => _writer.Write(value);
     public void Write(float value) => _writer.Write(value);
     public void Write(bool value) => _writer.Write(value);
     public void Write(long value) => _writer.Write(value);
@@ -200,6 +223,7 @@ public class Inventory(string name, Sprite icon, int width, int height)
     public int GetWidth() => width;
     public int GetHeight() => height;
     public void Changed() => ChangedCalls++;
+    public void NotifyChanged() => Changed();
     public bool CanAddItem(ItemDrop.ItemData item) => m_inventory.Count < width * height;
     public bool CanAddItem(GameObject prefab, int stack) => m_inventory.Count < width * height;
     public bool AddItem(ItemDrop.ItemData item)
@@ -218,71 +242,70 @@ public class Inventory(string name, Sprite icon, int width, int height)
     public void Save(ZPackage package)
     {
         if (ThrowOnSave) throw new InvalidOperationException("Injected serialization failure.");
-        WriteFixture(package, m_inventory, 106);
+        WriteFixture(package, m_inventory, 109);
     }
     public static void WriteFixture(ZPackage package, IReadOnlyCollection<ItemDrop.ItemData> items, int version)
     {
         package.Write(version);
-        package.Write(items.Count);
+        package.Write((ushort)items.Count);
         foreach (ItemDrop.ItemData item in items)
         {
-            package.Write(item.m_dropPrefab.name);
-            package.Write(item.m_stack);
-            package.Write(1f); // durability
-            package.Write(item.m_gridPos.x);
-            package.Write(item.m_gridPos.y);
-            package.Write(false); // equipped
-            if (version >= 101) package.Write(item.m_quality);
-            if (version >= 102) package.Write(0); // variant
-            if (version >= 103) { package.Write(0L); package.Write(""); }
-            if (version >= 104)
-            {
-                package.Write(item.m_customData.Count);
-                foreach (var pair in item.m_customData) { package.Write(pair.Key); package.Write(pair.Value); }
-            }
-            if (version >= 105) package.Write((int)item.m_worldLevel);
-            if (version >= 106) package.Write(false); // pickedUp
+            package.Write(10000); // durability * 100
+            package.Write((byte)item.m_gridPos.x);
+            package.Write((byte)item.m_gridPos.y);
+            package.Write(item.m_worldLevel);
+            int flags = 4 | 8 | 64 | 128;
+            package.Write((byte)flags);
+            package.Write((ushort)item.m_quality);
+            package.Write((ushort)item.m_stack);
+            package.Write(TestPrefabHash.Of(item.m_dropPrefab.name));
+            package.Write((byte)item.m_customData.Count); // small WriteNumItems case
+            foreach (var pair in item.m_customData) { package.Write(pair.Key); package.Write(pair.Value); }
+            package.Write((byte)0); // cheated flags
         }
     }
     public void Load(ZPackage package)
     {
         LoadCalls++;
         int version = package.ReadInt();
-        int count = package.ReadInt();
+        int count = package.ReadUShort();
         m_inventory.Clear();
         for (int i = 0; i < count; i++)
         {
-            string prefabName = package.ReadString();
-            int stack = package.ReadInt();
-            _ = package.ReadSingle();
-            Vector2i position = package.ReadVector2i();
-            _ = package.ReadBool();
-            int quality = version >= 101 ? package.ReadInt() : 1;
-            if (version >= 102) _ = package.ReadInt();
-            if (version >= 103) { _ = package.ReadLong(); _ = package.ReadString(); }
-            Dictionary<string, string> customData = new();
-            if (version >= 104)
-            {
-                int customCount = package.ReadInt();
-                for (int j = 0; j < customCount; j++) customData[package.ReadString()] = package.ReadString();
-            }
-            byte worldLevel = version >= 105 ? (byte)package.ReadInt() : (byte)0;
-            if (version >= 106) _ = package.ReadBool();
-            GameObject prefab = ObjectDB.instance.GetItemPrefab(prefabName);
+            (int hash, ItemDrop.ItemData data) = ItemDrop.ItemData.Load(package, (Version.Item)version);
+            GameObject prefab = ObjectDB.instance.GetItemPrefab(hash);
             if (prefab == null) continue;
             ItemDrop.ItemData item = prefab.GetComponent<ItemDrop>().m_itemData.Clone();
             item.m_dropPrefab = prefab;
-            item.m_stack = Math.Min(stack, item.m_shared.m_maxStackSize);
-            item.m_quality = quality;
-            item.m_gridPos = position;
-            item.m_customData = customData;
-            item.m_worldLevel = worldLevel;
+            item.m_stack = Math.Min(data.m_stack, item.m_shared.m_maxStackSize);
+            item.m_quality = data.m_quality;
+            item.m_gridPos = data.m_gridPos;
+            item.m_customData = data.m_customData;
+            item.m_worldLevel = data.m_worldLevel;
             m_inventory.Add(item);
         }
         Changed();
     }
 }
 
+public static class Version { public enum Item { ChunksNCheats = 109 } }
+public static class TestPrefabHash
+{
+    public static int Of(string name)
+    {
+        unchecked
+        {
+            int first = 5381, second = first;
+            for (int i = 0; i < name.Length && name[i] != '\0'; i += 2)
+            {
+                first = ((first << 5) + first) ^ name[i];
+                if (i == name.Length - 1 || name[i + 1] == '\0') break;
+                second = ((second << 5) + second) ^ name[i + 1];
+            }
+            return first + second * 1566083941;
+        }
+    }
+}
 namespace TrollingFishing
 {
     public enum Toggle { Off, On }
@@ -307,6 +330,7 @@ namespace TrollingFishing
     }
     internal static partial class FishingOverrideSystem
     {
+        private static void RecordFishingBagCatchStatistics(Player player, string fishName, int? quality) { }
         internal static int TestProxyRefreshCalls;
         private static void RefreshFishingRodBagProxy(ItemDrop.ItemData rod) => TestProxyRefreshCalls++;
         private static bool IsFishingRod(ItemDrop.ItemData item) => item?.m_dropPrefab?.name == "FishingRod";

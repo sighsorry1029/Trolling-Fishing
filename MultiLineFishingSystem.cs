@@ -240,9 +240,9 @@ internal static class MultiLineFishingSystem
     private static bool TryResolvePreparedAmmoSelection(Attack attack, ItemDrop.ItemData? attackAmmo, out FishingOverrideSystem.FishingRodAmmoSelection selection)
     {
         selection = default;
-        if (attack?.m_character is Humanoid humanoid &&
+        if (attack != null && FishingGameAccess.AttackCharacter(attack) is Humanoid humanoid &&
             AmmoSelectionStates.TryGetValue(humanoid, out AmmoSelectionState state) &&
-            ReferenceEquals(state.Weapon, attack.m_weapon) &&
+            ReferenceEquals(state.Weapon, attack.GetWeapon()) &&
             !state.IsExpired &&
             state.AmmoItem != null)
         {
@@ -252,7 +252,7 @@ internal static class MultiLineFishingSystem
         }
 
         if (attack != null &&
-            FishingOverrideSystem.TryResolveFishingRodAmmoSelection(attack.m_character, attack.m_weapon, out selection))
+            FishingOverrideSystem.TryResolveFishingRodAmmoSelection(FishingGameAccess.AttackCharacter(attack), attack.GetWeapon(), out selection))
         {
             return true;
         }
@@ -277,10 +277,10 @@ internal static class MultiLineFishingSystem
     internal static bool IsActiveMultiLineAttack(Attack attack)
     {
         return attack != null &&
-               FishingOverrideSystem.IsFishingRod(attack.m_weapon) &&
-               attack.m_character is Humanoid humanoid &&
-               ReferenceEquals(humanoid.m_currentAttack, attack) &&
-               humanoid.m_currentAttackIsSecondary;
+               FishingOverrideSystem.IsFishingRod(attack.GetWeapon()) &&
+               FishingGameAccess.AttackCharacter(attack) is Humanoid humanoid &&
+               ReferenceEquals(FishingGameAccess.CurrentAttack(humanoid), attack) &&
+               FishingGameAccess.IsSecondaryAttack(humanoid);
     }
 
     internal static bool TryHandleFireProjectileBurst(Attack attack)
@@ -295,29 +295,29 @@ internal static class MultiLineFishingSystem
             return true;
         }
 
-        if (string.IsNullOrWhiteSpace(attack.m_weapon.m_shared.m_ammoType))
+        if (string.IsNullOrWhiteSpace(attack.GetWeapon().m_shared.m_ammoType))
         {
             return false;
         }
 
         int configuredFloatCount = ResolveCount();
         int additionalFloatCount = Mathf.Max(0, configuredFloatCount - 1);
-        ItemDrop.ItemData ammoItem = attack.m_ammoItem ?? attack.m_lastUsedAmmo;
+        ItemDrop.ItemData ammoItem = FishingGameAccess.AttackAmmo(attack) ?? FishingGameAccess.LastAmmo(attack);
         if (!TryResolvePreparedAmmoSelection(attack, ammoItem, out FishingOverrideSystem.FishingRodAmmoSelection selection))
         {
-            attack.m_character.Message(MessageHud.MessageType.Center, "$msg_outof " + attack.m_weapon.m_shared.m_ammoType);
+            FishingGameAccess.AttackCharacter(attack).Message(MessageHud.MessageType.Center, "$msg_outof " + attack.GetWeapon().m_shared.m_ammoType);
             return true;
         }
 
         ammoItem ??= selection.AmmoItem;
-        if (FishingOverrideSystem.CountAvailableAmmoFromSource(attack.m_character, attack.m_weapon, attack.m_weapon.m_shared.m_ammoType, ammoItem, selection.Source) < additionalFloatCount)
+        if (FishingOverrideSystem.CountAvailableAmmoFromSource(FishingGameAccess.AttackCharacter(attack), attack.GetWeapon(), attack.GetWeapon().m_shared.m_ammoType, ammoItem, selection.Source) < additionalFloatCount)
         {
-            attack.m_character.Message(MessageHud.MessageType.Center, "$msg_outof " + attack.m_weapon.m_shared.m_ammoType);
+            FishingGameAccess.AttackCharacter(attack).Message(MessageHud.MessageType.Center, "$msg_outof " + attack.GetWeapon().m_shared.m_ammoType);
             return true;
         }
 
-        attack.m_ammoItem = ammoItem;
-        attack.m_lastUsedAmmo = ammoItem;
+        FishingGameAccess.AttackAmmo(attack) = ammoItem;
+        FishingGameAccess.LastAmmo(attack) = ammoItem;
         LaunchData launchData = CreateLaunchData(attack);
         if (!launchData.IsValid)
         {
@@ -326,33 +326,38 @@ internal static class MultiLineFishingSystem
 
         List<FishingOverrideSystem.MultiLineBaitReservation> baitReservations =
             FishingOverrideSystem.ReserveAdditionalMultiLineFishingBaits(
-                attack.m_character,
-                attack.m_weapon,
-                attack.m_weapon.m_shared.m_ammoType,
+                FishingGameAccess.AttackCharacter(attack),
+                attack.GetWeapon(),
+                attack.GetWeapon().m_shared.m_ammoType,
                 ammoItem,
                 selection.Source,
                 additionalFloatCount);
         if (baitReservations.Count < additionalFloatCount)
         {
-            attack.m_character.Message(MessageHud.MessageType.Center, "$msg_outof " + attack.m_weapon.m_shared.m_ammoType);
+            FishingGameAccess.AttackCharacter(attack).Message(MessageHud.MessageType.Center, "$msg_outof " + attack.GetWeapon().m_shared.m_ammoType);
             return true;
         }
 
         int floatCount = Mathf.Max(1, baitReservations.Count + 1);
         int primaryEquivalentLineIndex = GetPrimaryEquivalentLineIndex(floatCount);
         FishingOverrideSystem.MultiLineBaitReservation primaryBaitReturnSource =
-            FishingOverrideSystem.ResolveAttackBaitReturnSource(attack, attack.m_lastUsedAmmo);
+            FishingOverrideSystem.ResolveAttackBaitReturnSource(attack, FishingGameAccess.LastAmmo(attack));
 
-        FishingOverrideSystem.DestroyExistingFishingFloats(attack.m_character);
+        FishingOverrideSystem.DestroyExistingFishingFloats(FishingGameAccess.AttackCharacter(attack));
         PrepareCustomProjectileBurst(attack);
-        attack.GetProjectileSpawnPoint(out Vector3 spawnPoint, out Vector3 aimDirection);
+        FishingGameAccess.GetProjectileSpawnPoint(attack, out Vector3 spawnPoint, out Vector3 aimDirection);
         aimDirection = ApplyLaunchAngle(attack, aimDirection);
+        if (attack.m_blockReloadTime > 0f && FishingGameAccess.AttackCharacter(attack) is Player player)
+        {
+            player.m_blockReload = attack.m_blockReloadTime;
+        }
         if (attack.m_burstEffect.HasEffects())
         {
-            attack.m_burstEffect.Create(spawnPoint, Quaternion.LookRotation(aimDirection));
+            attack.m_burstEffect.Create(spawnPoint, Quaternion.LookRotation(aimDirection), null, 1f, -1,
+                FishingGameAccess.AttackCharacter(attack).GetZDOID());
         }
 
-        Vector3 rotationAxis = attack.m_character.transform.up;
+        Vector3 rotationAxis = FishingGameAccess.AttackCharacter(attack).transform.up;
         float spreadAngle = Mathf.Max(0f, TrollingFishingPlugin.FishingRodMultiLineSpreadAngle.Value);
         float startAngle = floatCount > 1 ? -spreadAngle * 0.5f : 0f;
         float angleStep = floatCount > 1 ? spreadAngle / (floatCount - 1) : 0f;
@@ -376,11 +381,11 @@ internal static class MultiLineFishingSystem
                 GameObject projectileObject = SpawnProjectileObject(attack, launchData, spawnPoint, direction, speed);
                 FishingOverrideSystem.MarkMultiLineFishingObject(
                     projectileObject,
-                    attack.m_character,
+                    FishingGameAccess.AttackCharacter(attack),
                     projectileIndex,
                     primaryEquivalentLineIndex,
                     trackedBait,
-                    attack.m_weapon);
+                    attack.GetWeapon());
             }
         }
 
@@ -409,7 +414,7 @@ internal static class MultiLineFishingSystem
 
     private static LaunchData CreateLaunchData(Attack attack)
     {
-        ItemDrop.ItemData ammoItem = attack.m_ammoItem;
+        ItemDrop.ItemData ammoItem = FishingGameAccess.AttackAmmo(attack);
         GameObject projectilePrefab = attack.m_attackProjectile;
         float projectileVelocity = attack.m_projectileVel;
         float projectileVelocityMin = attack.m_projectileVelMin;
@@ -430,12 +435,12 @@ internal static class MultiLineFishingSystem
             return LaunchData.Invalid;
         }
 
-        float damageFactor = attack.m_character.GetRandomSkillFactor(attack.m_weapon.m_shared.m_skillType);
+        float damageFactor = FishingGameAccess.AttackCharacter(attack).GetRandomSkillFactor(attack.GetWeapon().m_shared.m_skillType);
         if (attack.m_bowDraw)
         {
-            damageFactor *= attack.m_attackDrawPercentage;
-            projectileVelocity = Mathf.Lerp(projectileVelocityMin, projectileVelocity, drawVelocityCurve.Evaluate(attack.m_attackDrawPercentage));
-            if (attack.m_character is Player)
+            damageFactor *= FishingGameAccess.DrawPercentage(attack);
+            projectileVelocity = Mathf.Lerp(projectileVelocityMin, projectileVelocity, drawVelocityCurve.Evaluate(FishingGameAccess.DrawPercentage(attack)));
+            if (FishingGameAccess.AttackCharacter(attack) is Player)
             {
                 Game.instance.IncrementPlayerStat(PlayerStatType.ArrowsShot);
             }
@@ -454,7 +459,7 @@ internal static class MultiLineFishingSystem
     {
         if (direction == Vector3.zero)
         {
-            direction = attack.m_character.transform.forward;
+            direction = FishingGameAccess.AttackCharacter(attack).transform.forward;
         }
 
         direction.Normalize();
@@ -463,21 +468,21 @@ internal static class MultiLineFishingSystem
         IProjectile projectile = projectileObject.GetComponent<IProjectile>();
         Projectile projectileComponent = projectileObject.GetComponent<Projectile>();
         FishingFloat fishingFloat = projectileObject.GetComponent<FishingFloat>();
-        projectile?.Setup(attack.m_character, direction * speed, launchData.AttackHitNoise, hitData, attack.m_weapon, attack.m_lastUsedAmmo);
+        projectile?.Setup(FishingGameAccess.AttackCharacter(attack), direction * speed, launchData.AttackHitNoise, hitData, attack.GetWeapon(), FishingGameAccess.LastAmmo(attack));
         if (fishingFloat != null)
         {
             if (projectileComponent != null && !ReferenceEquals(projectile, projectileComponent))
             {
-                projectileComponent.Setup(attack.m_character, direction * speed, launchData.AttackHitNoise, hitData, attack.m_weapon, attack.m_lastUsedAmmo);
+                projectileComponent.Setup(FishingGameAccess.AttackCharacter(attack), direction * speed, launchData.AttackHitNoise, hitData, attack.GetWeapon(), FishingGameAccess.LastAmmo(attack));
             }
 
-            if (!ReferenceEquals(projectile, fishingFloat) && attack.m_lastUsedAmmo != null)
+            if (!ReferenceEquals(projectile, fishingFloat) && FishingGameAccess.LastAmmo(attack) != null)
             {
-                fishingFloat.Setup(attack.m_character, direction * speed, launchData.AttackHitNoise, hitData, attack.m_weapon, attack.m_lastUsedAmmo);
+                fishingFloat.Setup(FishingGameAccess.AttackCharacter(attack), direction * speed, launchData.AttackHitNoise, hitData, attack.GetWeapon(), FishingGameAccess.LastAmmo(attack));
             }
         }
 
-        attack.m_weapon.m_lastProjectile = projectileObject;
+        attack.GetWeapon().m_lastProjectile = projectileObject;
         if (attack.m_spawnOnHitChance > 0f && attack.m_spawnOnHit != null && projectile is Projectile baseProjectile)
         {
             baseProjectile.m_spawnOnHit = attack.m_spawnOnHit;
@@ -490,25 +495,27 @@ internal static class MultiLineFishingSystem
     private static HitData CreateProjectileHitData(Attack attack, ItemDrop.ItemData? ammoItem, float damageFactor)
     {
         HitData hitData = new();
-        hitData.m_toolTier = (short)attack.m_weapon.m_shared.m_toolTier;
-        hitData.m_pushForce = attack.m_weapon.m_shared.m_attackForce * attack.m_forceMultiplier;
-        hitData.m_backstabBonus = attack.m_weapon.m_shared.m_backstabBonus;
+        hitData.m_toolTier = (short)attack.GetWeapon().m_shared.m_toolTier;
+        hitData.m_pushForce = attack.GetWeapon().m_shared.m_attackForce * attack.m_forceMultiplier;
+        hitData.m_backstabBonus = attack.GetWeapon().m_shared.m_backstabBonus;
         hitData.m_staggerMultiplier = attack.m_staggerMultiplier;
-        hitData.m_damage.Add(attack.m_weapon.GetDamage());
-        hitData.m_statusEffectHash = attack.m_weapon.m_shared.m_attackStatusEffect != null &&
-                                     (attack.m_weapon.m_shared.m_attackStatusEffectChance == 1f || UnityEngine.Random.Range(0f, 1f) < attack.m_weapon.m_shared.m_attackStatusEffectChance)
-            ? attack.m_weapon.m_shared.m_attackStatusEffect.NameHash()
+        hitData.m_damage.Add(attack.GetWeapon().GetDamage());
+        hitData.m_statusEffectHash = attack.GetWeapon().m_shared.m_attackStatusEffect != null &&
+                                     (attack.GetWeapon().m_shared.m_attackStatusEffectChance == 1f || UnityEngine.Random.Range(0f, 1f) < attack.GetWeapon().m_shared.m_attackStatusEffectChance)
+            ? attack.GetWeapon().m_shared.m_attackStatusEffect.NameHash()
             : 0;
-        hitData.m_skillLevel = attack.m_character.GetSkillLevel(attack.m_weapon.m_shared.m_skillType);
-        hitData.m_itemLevel = (short)attack.m_weapon.m_quality;
-        hitData.m_itemWorldLevel = (byte)attack.m_weapon.m_worldLevel;
-        hitData.m_blockable = attack.m_weapon.m_shared.m_blockable;
-        hitData.m_dodgeable = attack.m_weapon.m_shared.m_dodgeable;
-        hitData.m_skill = attack.m_weapon.m_shared.m_skillType;
+        hitData.m_skillLevel = FishingGameAccess.AttackCharacter(attack).GetSkillLevel(attack.GetWeapon().m_shared.m_skillType);
+        hitData.m_itemLevel = (short)attack.GetWeapon().m_quality;
+        hitData.m_itemWorldLevel = (byte)attack.GetWeapon().m_worldLevel;
+        hitData.m_blockable = attack.GetWeapon().m_shared.m_blockable;
+        hitData.m_dodgeable = attack.GetWeapon().m_shared.m_dodgeable;
+        hitData.m_skill = attack.GetWeapon().m_shared.m_skillType;
         hitData.m_skillRaiseAmount = attack.m_raiseSkillAmount;
-        hitData.SetAttacker(attack.m_character);
+        hitData.SetAttacker(FishingGameAccess.AttackCharacter(attack));
         hitData.m_hitType = hitData.GetAttacker() is Player ? HitData.HitType.PlayerHit : HitData.HitType.EnemyHit;
         hitData.m_healthReturn = attack.m_attackHealthReturnHit;
+        hitData.m_eitrAdd = attack.m_attackEitrAdd;
+        hitData.m_variant = attack.GetWeapon().m_shared.m_hitVariant;
 
         if (ammoItem != null)
         {
@@ -518,6 +525,7 @@ internal static class MultiLineFishingSystem
                 (ammoItem.m_shared.m_attackStatusEffectChance == 1f || UnityEngine.Random.Range(0f, 1f) < ammoItem.m_shared.m_attackStatusEffectChance))
             {
                 hitData.m_statusEffectHash = ammoItem.m_shared.m_attackStatusEffect.NameHash();
+                hitData.m_variant = ammoItem.m_shared.m_hitVariant;
             }
 
             if (!ammoItem.m_shared.m_blockable)
@@ -532,8 +540,8 @@ internal static class MultiLineFishingSystem
         }
 
         hitData.m_pushForce *= damageFactor;
-        attack.ModifyDamage(hitData, damageFactor);
-        attack.m_character.GetSEMan().ModifyAttack(attack.m_weapon.m_shared.m_skillType, ref hitData);
+        FishingGameAccess.ModifyDamage(attack, hitData, damageFactor);
+        FishingGameAccess.AttackCharacter(attack).GetSEMan().ModifyAttack(attack.GetWeapon().m_shared.m_skillType, ref hitData);
         return hitData;
     }
 
@@ -555,7 +563,7 @@ internal static class MultiLineFishingSystem
         Vector3 axis = Vector3.Cross(Vector3.up, aimDirection);
         if (axis == Vector3.zero)
         {
-            axis = attack.m_character.transform.right;
+            axis = FishingGameAccess.AttackCharacter(attack).transform.right;
         }
 
         return Quaternion.AngleAxis(attack.m_launchAngle, axis) * aimDirection;
@@ -563,10 +571,10 @@ internal static class MultiLineFishingSystem
 
     private static void PrepareCustomProjectileBurst(Attack attack)
     {
-        if (attack.m_destroyPreviousProjectile && attack.m_weapon.m_lastProjectile != null)
+        if (attack.m_destroyPreviousProjectile && attack.GetWeapon().m_lastProjectile != null)
         {
-            ZNetScene.instance.Destroy(attack.m_weapon.m_lastProjectile);
-            attack.m_weapon.m_lastProjectile = null;
+            ZNetScene.instance.Destroy(attack.GetWeapon().m_lastProjectile);
+            attack.GetWeapon().m_lastProjectile = null;
         }
     }
 
@@ -626,7 +634,7 @@ internal static class MultiLineFishingSystem
     }
 }
 
-[HarmonyPatch(typeof(Player), nameof(Player.UpdateAttackBowDraw))]
+[HarmonyPatch(typeof(Player), "UpdateAttackBowDraw")]
 internal static class PlayerUpdateAttackBowDrawMultiLineFishingPatch
 {
     private static bool Prefix(
@@ -674,7 +682,7 @@ internal static class HumanoidStartAttackMultiLineFishingPatch
     }
 }
 
-[HarmonyPatch(typeof(Attack), nameof(Attack.FireProjectileBurst))]
+[HarmonyPatch(typeof(Attack), "FireProjectileBurst")]
 internal static class AttackFireProjectileBurstMultiLineFishingPatch
 {
     private static bool Prefix(Attack __instance, out IDisposable? __state)

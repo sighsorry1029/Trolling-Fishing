@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
@@ -78,19 +78,21 @@ internal static partial class FishingOverrideSystem
     {
         if (inventory == null ||
             InventoryGui.instance == null ||
-            InventoryGui.instance.m_containerGrid == null ||
-            InventoryGui.instance.m_currentContainer?.GetInventory() != inventory)
+            InventoryGui.instance.ContainerGrid == null ||
+            FishingGameAccess.CurrentContainer(InventoryGui.instance)?.GetInventory() != inventory)
         {
             return;
         }
 
-        InventoryGui.instance.m_containerGrid.UpdateInventory(inventory, Player.m_localPlayer, null);
+        InventoryGui.instance.ContainerGrid.UpdateInventory(inventory, Player.m_localPlayer, null);
     }
 
     internal static bool TryHandleInventoryGuiUseInput(InventoryGui inventoryGui)
     {
         if (inventoryGui == null ||
-            TrollingFishingPlugin.FishingRodBag.Value.IsOff())
+            !InventoryGui.IsVisible() ||
+            TrollingFishingPlugin.FishingRodBag.Value.IsOff() ||
+            EpicLootBagCompatibility.ShouldYieldUse)
         {
             return false;
         }
@@ -102,7 +104,7 @@ internal static partial class FishingOverrideSystem
 
         Player? player = Player.m_localPlayer;
         if (player == null ||
-            inventoryGui.m_currentContainer != null ||
+            FishingGameAccess.CurrentContainer(inventoryGui) != null ||
             !ZInput.GetButtonDown("Use"))
         {
             return false;
@@ -110,9 +112,20 @@ internal static partial class FishingOverrideSystem
 
         Vector2 mousePosition = Input.mousePosition;
         ItemDrop.ItemData hoveredItem = inventoryGui.m_playerGrid.GetItem(new Vector2i(Mathf.RoundToInt(mousePosition.x), Mathf.RoundToInt(mousePosition.y)));
-        if (!IsFishingRod(hoveredItem))
+        if (!IsFishingRod(hoveredItem) || !player.IsOwner() || !player.GetInventory().ContainsItem(hoveredItem))
         {
             return false;
+        }
+
+        if (EpicLootBagCompatibility.IsSocketGridOpen)
+        {
+            // Let EpicLoot save its sockets and detach UI handlers before Show.
+            CloseFishingRodBagContainerOnly(inventoryGui);
+            if (EpicLootBagCompatibility.IsSocketGridOpen || Player.m_localPlayer != player ||
+                !player.IsOwner() || !player.GetInventory().ContainsItem(hoveredItem))
+            {
+                return false;
+            }
         }
 
         OpenFishingRodBag(player, hoveredItem);
@@ -133,7 +146,7 @@ internal static partial class FishingOverrideSystem
             return;
         }
 
-        float totalWeight = inventory.m_totalWeight + GetFishingRodBagExtraWeight(inventory);
+        float totalWeight = inventory.GetTotalWeight();
         int currentWeight = Mathf.CeilToInt(totalWeight);
         int maxWeight = Mathf.CeilToInt(player.GetMaxCarryWeight());
         if (currentWeight > maxWeight && Mathf.Sin(Time.time * 10f) > 0f)
@@ -150,7 +163,7 @@ internal static partial class FishingOverrideSystem
         if (inventoryGui == null ||
             player == null ||
             inventoryGui.m_containerWeight == null ||
-            !TryGetFishingRodBagContainerDisplayWeight(inventoryGui.m_currentContainer, player, out float weight))
+            !TryGetFishingRodBagContainerDisplayWeight(FishingGameAccess.CurrentContainer(inventoryGui), player, out float weight))
         {
             return;
         }
@@ -180,7 +193,8 @@ internal static partial class FishingOverrideSystem
 
         if (hints.Count > 0)
         {
-            tooltip += "\n\n<color=orange>" + string.Join("\n", hints) + "</color>";
+            // TMP's named orange is FF8000. Hex preserves it when EpicLoot replaces named color tags.
+            tooltip += "\n\n<color=#FF8000>" + string.Join("\n", hints) + "</color>";
         }
     }
 
@@ -227,7 +241,7 @@ internal static partial class FishingOverrideSystem
     {
         InventoryGui? inventoryGui = InventoryGui.instance;
         if (inventoryGui == null ||
-            !IsFishingRodBagContainer(inventoryGui.m_currentContainer))
+            !IsFishingRodBagContainer(FishingGameAccess.CurrentContainer(inventoryGui)))
         {
             return false;
         }
@@ -299,8 +313,8 @@ internal static partial class FishingOverrideSystem
             container.m_name = "$item_fishingrod";
             container.m_width = width;
             container.m_height = height;
-            container.m_inventory = _inventory;
-            container.m_inUse = true;
+            FishingGameAccess.ContainerInventory(container) = _inventory;
+            FishingGameAccess.ContainerInUse(container) = true;
             AzuCraftyBoxesCompat.AddContainer(container);
             Save();
             return true;
@@ -311,7 +325,7 @@ internal static partial class FishingOverrideSystem
             if (!_closed &&
                 _container != null &&
                 InventoryGui.instance != null &&
-                InventoryGui.instance.m_currentContainer != _container)
+                FishingGameAccess.CurrentContainer(InventoryGui.instance) != _container)
             {
                 CloseAndDestroy();
                 return;

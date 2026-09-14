@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
@@ -45,7 +45,7 @@ internal static class ContainerSetInUseFishingRodBagPatch
             return true;
         }
 
-        __instance.m_inUse = inUse;
+        FishingGameAccess.ContainerInUse(__instance) = inUse;
         return false;
     }
 }
@@ -60,12 +60,12 @@ internal static class ContainerIsInUseFishingRodBagPatch
             return true;
         }
 
-        __result = __instance.m_inUse;
+        __result = FishingGameAccess.ContainerInUse(__instance);
         return false;
     }
 }
 
-[HarmonyPatch(typeof(Container), nameof(Container.Save))]
+[HarmonyPatch(typeof(Container), "Save")]
 internal static class ContainerSaveFishingRodBagPatch
 {
     private static bool Prefix(Container __instance)
@@ -79,7 +79,7 @@ internal static class ContainerSaveFishingRodBagPatch
     }
 }
 
-[HarmonyPatch(typeof(Container), nameof(Container.Load))]
+[HarmonyPatch(typeof(Container), "Load")]
 internal static class ContainerLoadFishingRodBagPatch
 {
     private static bool Prefix(Container __instance, ref bool __result)
@@ -169,7 +169,7 @@ internal static class InventoryAddItemAtPositionFishingRodBagPatch
     }
 }
 
-[HarmonyPatch(typeof(Inventory), nameof(Inventory.AddItem), new[] { typeof(ItemDrop.ItemData), typeof(int), typeof(int), typeof(int) })]
+[HarmonyPatch(typeof(Inventory), nameof(Inventory.AddItem), new[] { typeof(ItemDrop.ItemData), typeof(int), typeof(int), typeof(int), typeof(bool) })]
 internal static class InventoryAddItemAmountFishingRodBagPatch
 {
     private static bool Prefix(Inventory __instance, ItemDrop.ItemData item, ref bool __result)

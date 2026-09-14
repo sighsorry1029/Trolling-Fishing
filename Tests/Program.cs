@@ -12,12 +12,12 @@ internal static class Program
     private static int Main()
     {
         List<(string Name, Action Run)> tests = new();
-        for (int version = 100; version <= 106; version++)
+        tests.Add(("version 109 load and round trip", () => RoundTrip(109)));
+        foreach (int version in new[] { 100, 106, 107, 108 })
         {
-            int fixtureVersion = version;
-            tests.Add(($"version {version} load and round trip", () => LegacyRoundTrip(fixtureVersion)));
+            int unsupported = version;
+            tests.Add(($"unsupported bag format {version} is preserved", () => AssertLoadFailure(Header(unsupported, 0))));
         }
-
         tests.AddRange(new (string, Action)[]
         {
             ("absent data creates an editable empty bag", NewBag),
@@ -29,16 +29,16 @@ internal static class Program
             ("missing prefab cannot become a partial saved bag", MissingPrefab),
             ("trailing bytes are rejected", TrailingBytes),
             ("unsupported old version remains intact", () => AssertLoadFailure(Header(99, 0))),
-            ("unsupported future version remains intact", () => AssertLoadFailure(Header(107, 0))),
-            ("negative item count remains intact", () => AssertLoadFailure(Header(106, -1))),
-            ("oversized item count remains intact", () => AssertLoadFailure(Header(106, 81))),
+            ("unsupported future version remains intact", () => AssertLoadFailure(Header(110, 0))),
+            ("maximum ushort item count remains intact", () => AssertLoadFailure(Header(109, 65535))),
+            ("oversized item count remains intact", () => AssertLoadFailure(Header(109, 81))),
             ("failed automatic catch falls through without destroying fish", FailedCatch),
             ("shrink/save/expand preserves overflow and clones once", OverflowRoundTrip),
             ("saving repairs positions without changing live items", RepairPositions),
             ("overcapacity save preserves existing metadata", Overcapacity),
             ("serialization exception preserves existing metadata", SerializationFailure),
             ("weight exception preserves existing metadata", WeightFailure),
-            ("legacy weight query does not instantiate inventory", WeightMigration),
+            ("current-format weight query does not instantiate inventory", WeightMetadata),
             ("normal bag rules remain distinct from player inventory", AllowedItemRules),
             ("normal empty save clears data and weight only", SaveEmpty),
         });
@@ -100,7 +100,7 @@ internal static class Program
         return item;
     }
 
-    private static string Fixture(IReadOnlyCollection<Item> items, int version = 106)
+    private static string Fixture(IReadOnlyCollection<Item> items, int version = 109)
     {
         ZPackage package = new();
         Inventory.WriteFixture(package, items, version);
@@ -110,7 +110,7 @@ internal static class Program
     {
         ZPackage package = new();
         package.Write(version);
-        package.Write(count);
+        package.Write((ushort)count);
         return package.GetBase64();
     }
     private static void SetExistingData(string raw)
@@ -138,7 +138,7 @@ internal static class Program
         throw new Exception("Expected InvalidOperationException.");
     }
 
-    private static void LegacyRoundTrip(int version)
+    private static void RoundTrip(int version)
     {
         Item[] source = [FishItem(0), FishItem(1)];
         SetExistingData(Fixture(source, version));
@@ -151,9 +151,9 @@ internal static class Program
         Inventory reloaded = Bag.TestLoad(_player, _rod);
         Check(reloaded.GetAllItems().Sum(item => item.m_stack) == 3, "Stacks changed on round trip.");
         Item second = reloaded.GetAllItems()[1];
-        Check(second.m_quality == (version >= 101 ? 2 : 1), "Legacy quality changed.");
-        Check(second.m_customData.Count == (version >= 104 ? 1 : 0), "Legacy custom data changed.");
-        Check(second.m_worldLevel == (version >= 105 ? 2 : 0), "Legacy world level changed.");
+        Check(second.m_quality == 2, "Stored quality changed.");
+        Check(second.m_customData.Count == 1, "Stored custom data changed.");
+        Check(second.m_worldLevel == 2, "Stored world level changed.");
         Check(_rod.m_customData["other.mod"] == "keep", "Unrelated metadata changed.");
     }
 
@@ -167,7 +167,7 @@ internal static class Program
     }
     private static void EmptyBag()
     {
-        SetExistingData(Header(106, 0));
+        SetExistingData(Header(109, 0));
         var before = Snapshot();
         Inventory bag = Bag.TestLoad(_player, _rod);
         Check(!Bag.IsFishingRodBagInventoryLoadFailed(bag), "Valid empty package was rejected.");
@@ -209,7 +209,7 @@ internal static class Program
     private static void TrailingBytes()
     {
         ZPackage package = new();
-        Inventory.WriteFixture(package, [FishItem()], 106);
+        Inventory.WriteFixture(package, [FishItem()], 109);
         package.Write(42);
         AssertLoadFailure(package.GetBase64());
     }
@@ -290,13 +290,13 @@ internal static class Program
         Unchanged(before);
         Check(_player.Inventory.ChangedCalls == 0 && Bag.TestProxyRefreshCalls == 0, "Failed commit notified listeners.");
     }
-    private static void WeightMigration()
+    private static void WeightMetadata()
     {
-        _rod.m_customData[FishingRodBagStoreState.BagDataKey] = Fixture([FishItem(1)], 104);
+        _rod.m_customData[FishingRodBagStoreState.BagDataKey] = Fixture([FishItem(1)], 109);
         Item.CloneCalls = 0;
         Inventory.LoadCalls = 0;
-        Check(Bag.TestWeight(_rod) == 2, "Migrated weight is incorrect.");
-        Check(Item.CloneCalls == 0 && Inventory.LoadCalls == 0, "Weight migration loaded or cloned inventory items.");
+        Check(Bag.TestWeight(_rod) == 2, "Decoded weight is incorrect.");
+        Check(Item.CloneCalls == 0 && Inventory.LoadCalls == 0, "Weight decoding loaded or cloned inventory items.");
         Check(_rod.m_customData[FishingRodBagStoreState.BagWeightKey] == "2", "Weight metadata was not persisted.");
         Check(Bag.TestWeight(_rod) == 2 && Inventory.LoadCalls == 0, "Cached weight unexpectedly loaded inventory.");
     }

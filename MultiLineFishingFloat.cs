@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -131,7 +131,7 @@ internal static partial class FishingOverrideSystem
             return true;
         }
 
-        Character owner = marker.Owner ?? fishingFloat.GetOwner();
+        Character owner = marker.Owner ?? FishingGameAccess.FloatOwner(fishingFloat);
         if (owner == null)
         {
             return true;
@@ -278,7 +278,7 @@ internal static partial class FishingOverrideSystem
             return;
         }
 
-        fishingFloat.ReturnBait();
+        FishingGameAccess.ReturnBait(fishingFloat);
     }
 
     internal static void DestroyExistingFishingFloats(Character owner, FishingFloat? except = null)
@@ -291,7 +291,7 @@ internal static partial class FishingOverrideSystem
         MultiLineFishingCastState.FloatBuffer.Clear();
         foreach (FishingFloat fishingFloat in FishingFloat.GetAllInstances())
         {
-            if (fishingFloat != null && fishingFloat != except && fishingFloat.GetOwner() == owner)
+            if (fishingFloat != null && fishingFloat != except && FishingGameAccess.FloatOwner(fishingFloat) == owner)
             {
                 MultiLineFishingCastState.FloatBuffer.Add(fishingFloat);
             }
@@ -357,7 +357,7 @@ internal static partial class FishingOverrideSystem
     internal static IDisposable? BeginAttackBaitReturnSourceSetup(Attack attack)
     {
         if (attack == null ||
-            !TryGetAttackBaitReturnSource(attack, attack.m_lastUsedAmmo ?? attack.m_ammoItem, out MultiLineBaitReservation source))
+            !TryGetAttackBaitReturnSource(attack, FishingGameAccess.LastAmmo(attack) ?? FishingGameAccess.AttackAmmo(attack), out MultiLineBaitReservation source))
         {
             return null;
         }
@@ -511,7 +511,7 @@ internal static partial class FishingOverrideSystem
             return true;
         }
 
-        Character? owner = fishingFloat != null ? fishingFloat.GetOwner() : sourceObject.GetComponent<MultiLineFishingFloatMarker>()?.Owner;
+        Character? owner = fishingFloat != null ? FishingGameAccess.FloatOwner(fishingFloat) : sourceObject.GetComponent<MultiLineFishingFloatMarker>()?.Owner;
         if (owner is not Player player)
         {
             return false;

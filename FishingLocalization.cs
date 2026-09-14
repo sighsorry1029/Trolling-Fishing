@@ -92,7 +92,7 @@ internal static class FishingLocalization
 
         foreach (KeyValuePair<string, string> entry in localizationTexts)
         {
-            localization.AddWord(entry.Key, entry.Value);
+            FishingGameAccess.AddWord(localization, entry.Key, entry.Value);
         }
     }
 
@@ -203,7 +203,7 @@ internal static class LocalizationSetupLanguageFishingPatch
     }
 }
 
-[HarmonyPatch(typeof(FejdStartup), nameof(FejdStartup.SetupGui))]
+[HarmonyPatch(typeof(FejdStartup), "SetupGui")]
 internal static class LocalizationSetupGuiFishingPatch
 {
     private static void Postfix()

@@ -15,7 +15,7 @@ internal static partial class FishingOverrideSystem
             return false;
         }
 
-        Inventory inventory = container.m_inventory;
+        Inventory inventory = container.GetInventory();
         if (inventory == null)
         {
             return true;
@@ -57,7 +57,7 @@ internal static partial class FishingOverrideSystem
 
     private static void SortFishingRodBagInventoryFallback(Inventory inventory)
     {
-        List<ItemDrop.ItemData> items = new(inventory.m_inventory);
+        List<ItemDrop.ItemData> items = new(inventory.GetAllItems());
         items.Sort(CompareFishingRodBagItems);
 
         int width = Mathf.Max(1, inventory.GetWidth());
@@ -66,9 +66,9 @@ internal static partial class FishingOverrideSystem
             items[i].m_gridPos = new Vector2i(i % width, i / width);
         }
 
-        inventory.m_inventory.Clear();
-        inventory.m_inventory.AddRange(items);
-        inventory.Changed();
+        inventory.GetAllItems().Clear();
+        inventory.GetAllItems().AddRange(items);
+        inventory.NotifyChanged();
     }
 
     private static int CompareFishingRodBagItems(ItemDrop.ItemData left, ItemDrop.ItemData right)

@@ -38,7 +38,7 @@ internal static class ProjectileSetupBaitReturnSourcePatch
     }
 }
 
-[HarmonyPatch(typeof(FishingFloat), nameof(FishingFloat.FixedUpdate))]
+[HarmonyPatch(typeof(FishingFloat), "FixedUpdate")]
 internal static class FishingFloatFixedUpdateMultiLineFishingPatch
 {
     private static bool Prefix(FishingFloat __instance, out int? __state)
@@ -53,7 +53,7 @@ internal static class FishingFloatFixedUpdateMultiLineFishingPatch
     }
 }
 
-[HarmonyPatch(typeof(FishingFloat), nameof(FishingFloat.ReturnBait))]
+[HarmonyPatch(typeof(FishingFloat), "ReturnBait")]
 internal static class FishingFloatReturnBaitOriginalSourcePatch
 {
     private static bool Prefix(FishingFloat __instance)
@@ -62,7 +62,7 @@ internal static class FishingFloatReturnBaitOriginalSourcePatch
     }
 }
 
-[HarmonyPatch(typeof(FishingFloat), nameof(FishingFloat.SetCatch))]
+[HarmonyPatch(typeof(FishingFloat), "SetCatch")]
 internal static class FishingFloatSetCatchMultiLineFishingPatch
 {
     private static void Postfix(FishingFloat __instance, Fish fish)

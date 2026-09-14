@@ -136,7 +136,7 @@ internal static class FishingRodInputIcons
                 "$button_mouse2", StringComparison.Ordinal))
         {
             int position = 0;
-            while (localization.FindNextWord(text, position, out string word, out int start, out int end))
+            while (FishingGameAccess.FindNextWord(localization, text, position, out string word, out int start, out int end))
             {
                 position = end;
                 if (!string.Equals(word, "KEY_SecondaryAttack", StringComparison.Ordinal))
@@ -395,7 +395,7 @@ internal static class FishingRodKeyHintSystem
         Player? player = Player.m_localPlayer;
         return TrollingFishingPlugin.FishingRodMultiLine != null &&
                TrollingFishingPlugin.FishingRodMultiLine.Value.IsOn() &&
-               hints.m_keyHintsEnabled &&
+               FishingGameAccess.KeyHintsEnabled(hints) &&
                hints.m_fishingHints != null &&
                hints.m_fishingHints.activeInHierarchy &&
                player != null &&

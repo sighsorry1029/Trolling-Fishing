@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
@@ -15,6 +15,26 @@ internal static partial class FishingOverrideSystem
 {
     private static readonly Dictionary<FishingFloat, float> FishingFloatOwnerSkillFactorCache = new();
     private static int _fishingFloatOwnerSkillFactorCacheFrame = -1;
+
+    private static void RecordFishingBagCatchStatistics(Player player, string fishName, int? quality)
+    {
+        // Catch's vanilla body is skipped only when the bag took the fish. Preserve the new
+        // 1.0 statistics once, after storage and removal succeed, on the owning local player.
+        if (player != Player.m_localPlayer || Game.instance == null) return;
+        try
+        {
+            Game.instance.GetPlayerProfile().IncrementStatPickable(fishName);
+            Game.instance.IncrementPlayerStat(PlayerStatType.FishCaught);
+            if (quality is >= 0 and <= 6)
+            {
+                Game.instance.IncrementPlayerStat((PlayerStatType)((int)PlayerStatType.FishCaughtTier0 + quality.Value));
+            }
+        }
+        catch (Exception exception)
+        {
+            TrollingFishingPlugin.ModLogger.LogWarning("Could not record caught fish statistics: " + exception.GetBaseException().Message);
+        }
+    }
 
     internal readonly struct ExtraDropChanceState
     {
@@ -114,7 +134,7 @@ internal static partial class FishingOverrideSystem
             return skillFactor;
         }
 
-        skillFactor = fishingFloat.GetOwner() is Player player
+        skillFactor = FishingGameAccess.FloatOwner(fishingFloat) is Player player
             ? Mathf.Clamp01(player.GetSkillFactor(Skills.SkillType.Fishing))
             : 0f;
         FishingFloatOwnerSkillFactorCache[fishingFloat] = skillFactor;

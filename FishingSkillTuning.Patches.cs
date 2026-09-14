@@ -1,11 +1,11 @@
-﻿using System;
+using System;
 using HarmonyLib;
 using System.Text;
 using UnityEngine;
 
 namespace TrollingFishing;
 
-[HarmonyPatch(typeof(Fish), nameof(Fish.FindFloat))]
+[HarmonyPatch(typeof(Fish), "FindFloat")]
 internal static class FishFindFloatFishingSkillPatch
 {
     private static bool Prefix(Fish __instance, ref FishingFloat __result)
@@ -176,7 +176,7 @@ internal static class FishingSkillTooltipPatch
             string text = FishingSkillTooltipText.Append(tooltip.m_text);
             if (!string.Equals(text, tooltip.m_text, StringComparison.Ordinal))
             {
-                tooltip.Set(tooltip.m_topic, text, tooltip.m_anchor, tooltip.m_fixedPosition);
+                tooltip.Set(tooltip.m_topic, text, FishingGameAccess.TooltipAnchor(tooltip), FishingGameAccess.TooltipPosition(tooltip));
             }
 
             FishingSkillTooltipPositioning.Bind(__instance, tooltip);
@@ -200,11 +200,11 @@ internal static class FishingSkillTooltipPatch
         int fishingIndex,
         string fishingDescription)
     {
-        if (dialog.m_elements != null &&
+        if (FishingGameAccess.SkillElements(dialog) != null &&
             fishingIndex >= 0 &&
-            fishingIndex < dialog.m_elements.Count)
+            fishingIndex < FishingGameAccess.SkillElements(dialog).Count)
         {
-            GameObject? indexedElement = dialog.m_elements[fishingIndex];
+            GameObject? indexedElement = FishingGameAccess.SkillElements(dialog)[fishingIndex];
             UITooltip? indexedTooltip = indexedElement != null
                 ? indexedElement.GetComponentInChildren<UITooltip>(true)
                 : null;

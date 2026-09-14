@@ -12,10 +12,11 @@ namespace TrollingFishing;
 [BepInPlugin(ModGUID, ModName, ModVersion)]
 [BepInDependency("WackyMole.ItemRequiresSkillLevel", BepInDependency.DependencyFlags.SoftDependency)]
 [BepInDependency("Detalhes.ItemRequiresSkillLevel", BepInDependency.DependencyFlags.SoftDependency)]
+[BepInDependency(EpicLootBagCompatibility.PluginGuid, BepInDependency.DependencyFlags.SoftDependency)]
 public class TrollingFishingPlugin : BaseUnityPlugin
 {
     internal const string ModName = "TrollingFishing";
-    internal const string ModVersion = "1.1.1";
+    internal const string ModVersion = "1.1.3";
     internal const string Author = "sighsorry";
     internal const int FishingRodMultiLineMinCount = 2;
     internal const int FishingRodMultiLineMaxCount = 10;
@@ -85,6 +86,7 @@ public class TrollingFishingPlugin : BaseUnityPlugin
         FishingRodMultiLineSkillRaiseFactor = config("4 - Multi Line Fishing", "Fishing Rod Multi Line Extra Skill Raise Factor", 0.5f, new ConfigDescription("Multiplier applied to Fishing skill progress while reeling each additional multi-line fishing float. The primary-equivalent float always uses vanilla skill progress. With 3 floats and 0.5, total reel skill progress is roughly 1 + 2 * 0.5 = 2x vanilla.", new AcceptableValueRange<float>(0f, 5f)), synchronizedSetting: true);
 
         Assembly assembly = Assembly.GetExecutingAssembly();
+        EpicLootBagCompatibility.Initialize();
         _harmony.PatchAll(assembly);
         FishingLocalization.LoadLocalizationLater();
         SetupWatcher();
@@ -105,6 +107,7 @@ public class TrollingFishingPlugin : BaseUnityPlugin
         _baitConfigWatcher?.Dispose();
         FishingRodKeyHintSystem.Shutdown();
         _harmony.UnpatchSelf();
+        EpicLootBagCompatibility.Reset();
         FishingLocalization.Shutdown();
     }
 

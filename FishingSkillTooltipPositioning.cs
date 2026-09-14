@@ -46,8 +46,8 @@ internal static class FishingSkillTooltipPositioning
         DialogTooltips.GetValue(dialog, _ => new List<UITooltip>(1)).Add(tooltip);
 
         // Keep gamepad tooltips on the canvas and outside the skill list's scroll mask.
-        tooltip.m_anchor = canvasRect;
-        tooltip.m_fixedPosition = Vector2.zero;
+        FishingGameAccess.TooltipAnchor(tooltip) = canvasRect;
+        FishingGameAccess.TooltipPosition(tooltip) = Vector2.zero;
     }
 
     internal static void ClearBindings(SkillsDialog dialog)
@@ -62,9 +62,9 @@ internal static class FishingSkillTooltipPositioning
         {
             if (tooltip != null && TooltipBindings.TryGetValue(tooltip, out TooltipBinding? binding))
             {
-                tooltip.m_anchor = binding.OriginalAnchor;
-                tooltip.m_fixedPosition = binding.OriginalFixedPosition;
-                if (UITooltip.m_current == tooltip)
+                FishingGameAccess.TooltipAnchor(tooltip) = binding.OriginalAnchor;
+                FishingGameAccess.TooltipPosition(tooltip) = binding.OriginalFixedPosition;
+                if (FishingGameAccess.CurrentTooltip() == tooltip)
                 {
                     UITooltip.HideTooltip();
                 }
@@ -78,7 +78,7 @@ internal static class FishingSkillTooltipPositioning
 
     internal static void UpdateVisibleTooltip(UITooltip tooltip)
     {
-        if (UITooltip.m_current != tooltip || UITooltip.m_tooltip == null ||
+        if (FishingGameAccess.CurrentTooltip() != tooltip || FishingGameAccess.TooltipRoot() == null ||
             !TooltipBindings.TryGetValue(tooltip, out TooltipBinding? binding))
         {
             return;
@@ -93,7 +93,7 @@ internal static class FishingSkillTooltipPositioning
                 return;
             }
 
-            GameObject root = UITooltip.m_tooltip;
+            GameObject root = FishingGameAccess.TooltipRoot();
             if (!root.activeSelf)
             {
                 return;
@@ -159,8 +159,8 @@ internal static class FishingSkillTooltipPositioning
 
     private static void RestoreVanillaPositioning(UITooltip tooltip, TooltipBinding binding)
     {
-        tooltip.m_anchor = binding.OriginalAnchor;
-        tooltip.m_fixedPosition = binding.OriginalFixedPosition;
+        FishingGameAccess.TooltipAnchor(tooltip) = binding.OriginalAnchor;
+        FishingGameAccess.TooltipPosition(tooltip) = binding.OriginalFixedPosition;
     }
 
     private static RectTransform? FindSkillPanel(SkillsDialog dialog)
@@ -222,8 +222,8 @@ internal static class FishingSkillTooltipPositioning
             Row = row;
             Canvas = canvas;
             CanvasRect = canvasRect;
-            OriginalAnchor = tooltip.m_anchor;
-            OriginalFixedPosition = tooltip.m_fixedPosition;
+            OriginalAnchor = FishingGameAccess.TooltipAnchor(tooltip);
+            OriginalFixedPosition = FishingGameAccess.TooltipPosition(tooltip);
         }
     }
 
