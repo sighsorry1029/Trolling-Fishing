@@ -12,7 +12,13 @@ internal static class Program
     private static int Main()
     {
         List<(string Name, Action Run)> tests = new();
-        tests.Add(("version 109 load and round trip", () => RoundTrip(109)));
+        foreach (int version in new[] { 109, 110 })
+        {
+            tests.Add(($"version {version} load and round trip", () => RoundTrip(version)));
+            tests.Add(($"version {version} weight query does not instantiate inventory", () => WeightMetadata(version)));
+            foreach (bool cheated in new[] { false, true })
+                tests.Add(($"version {version} cheated={cheated} follows game load and survives resave", () => CheatedRoundTrip(version, cheated)));
+        }
         foreach (int version in new[] { 100, 106, 107, 108 })
         {
             int unsupported = version;
@@ -29,7 +35,7 @@ internal static class Program
             ("missing prefab cannot become a partial saved bag", MissingPrefab),
             ("trailing bytes are rejected", TrailingBytes),
             ("unsupported old version remains intact", () => AssertLoadFailure(Header(99, 0))),
-            ("unsupported future version remains intact", () => AssertLoadFailure(Header(110, 0))),
+            ("unsupported future version remains intact", () => AssertLoadFailure(Header(111, 0))),
             ("maximum ushort item count remains intact", () => AssertLoadFailure(Header(109, 65535))),
             ("oversized item count remains intact", () => AssertLoadFailure(Header(109, 81))),
             ("failed automatic catch falls through without destroying fish", FailedCatch),
@@ -38,7 +44,6 @@ internal static class Program
             ("overcapacity save preserves existing metadata", Overcapacity),
             ("serialization exception preserves existing metadata", SerializationFailure),
             ("weight exception preserves existing metadata", WeightFailure),
-            ("current-format weight query does not instantiate inventory", WeightMetadata),
             ("normal bag rules remain distinct from player inventory", AllowedItemRules),
             ("normal empty save clears data and weight only", SaveEmpty),
         });
@@ -100,7 +105,7 @@ internal static class Program
         return item;
     }
 
-    private static string Fixture(IReadOnlyCollection<Item> items, int version = 109)
+    private static string Fixture(IReadOnlyCollection<Item> items, int version = 110)
     {
         ZPackage package = new();
         Inventory.WriteFixture(package, items, version);
@@ -148,6 +153,7 @@ internal static class Program
         Check(inventory.GetAllItems().Count == 2, "Item count changed.");
         Unchanged(before);
         Bag.TestSave(_rod, inventory);
+        Check(new ZPackage(_rod.m_customData[FishingRodBagStoreState.BagDataKey]).ReadInt() == 110, "Save did not use current game format.");
         Inventory reloaded = Bag.TestLoad(_player, _rod);
         Check(reloaded.GetAllItems().Sum(item => item.m_stack) == 3, "Stacks changed on round trip.");
         Item second = reloaded.GetAllItems()[1];
@@ -155,6 +161,19 @@ internal static class Program
         Check(second.m_customData.Count == 1, "Stored custom data changed.");
         Check(second.m_worldLevel == 2, "Stored world level changed.");
         Check(_rod.m_customData["other.mod"] == "keep", "Unrelated metadata changed.");
+    }
+
+    private static void CheatedRoundTrip(int version, bool cheated)
+    {
+        Item source = FishItem();
+        source.m_cheated = cheated;
+        SetExistingData(Fixture([source], version));
+        Inventory inventory = Bag.TestLoad(_player, _rod);
+        Check(!Bag.IsFishingRodBagInventoryLoadFailed(inventory), "Supported data was rejected.");
+        bool expected = version == 110 && cheated;
+        Check(inventory.GetAllItems().Single().m_cheated == expected, "Game clean-slate interpretation changed.");
+        Bag.TestSave(_rod, inventory);
+        Check(Bag.TestLoad(_player, _rod).GetAllItems().Single().m_cheated == expected, "Cheated state changed after save/reopen.");
     }
 
     private static void NewBag()
@@ -290,9 +309,9 @@ internal static class Program
         Unchanged(before);
         Check(_player.Inventory.ChangedCalls == 0 && Bag.TestProxyRefreshCalls == 0, "Failed commit notified listeners.");
     }
-    private static void WeightMetadata()
+    private static void WeightMetadata(int version)
     {
-        _rod.m_customData[FishingRodBagStoreState.BagDataKey] = Fixture([FishItem(1)], 109);
+        _rod.m_customData[FishingRodBagStoreState.BagDataKey] = Fixture([FishItem(1)], version);
         Item.CloneCalls = 0;
         Inventory.LoadCalls = 0;
         Check(Bag.TestWeight(_rod) == 2, "Decoded weight is incorrect.");

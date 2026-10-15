@@ -357,7 +357,8 @@ internal static partial class FishingOverrideSystem
             ZPackage package = new(rawData);
             int version = package.ReadInt();
             int itemCount = package.ReadUShort();
-            if (version != (int)Version.Item.ChunksNCheats || itemCount > FishingRodBagStoreState.MaxSlots)
+            if ((version != (int)Version.Item.ChunksNCheats && version != (int)Version.Item.NewCheats)
+                || itemCount > FishingRodBagStoreState.MaxSlots)
             {
                 throw new InvalidOperationException("Unsupported FishingRod bag data version or item count.");
             }
@@ -523,7 +524,8 @@ internal static partial class FishingOverrideSystem
             ZPackage package = new(rawData);
             int version = package.ReadInt();
             int itemCount = package.ReadUShort();
-            if (version != (int)Version.Item.ChunksNCheats || itemCount > FishingRodBagStoreState.MaxSlots)
+            if ((version != (int)Version.Item.ChunksNCheats && version != (int)Version.Item.NewCheats)
+                || itemCount > FishingRodBagStoreState.MaxSlots)
             {
                 return false;
             }
@@ -532,7 +534,7 @@ internal static partial class FishingOverrideSystem
             {
                 // The game's 1.0 item decoder reads metadata only; unlike Inventory.Load,
                 // it never instantiates a prefab or consumes another mod's pending upgrade.
-                (int prefabHash, ItemDrop.ItemData item) = ItemDrop.ItemData.Load(package, Version.Item.ChunksNCheats);
+                (int prefabHash, ItemDrop.ItemData item) = ItemDrop.ItemData.Load(package, (Version.Item)version);
                 GameObject? prefab = ObjectDB.instance != null ? ObjectDB.instance.GetItemPrefab(prefabHash) : null;
                 if (prefab == null || !prefab.TryGetComponent(out ItemDrop itemDrop) ||
                     itemDrop.m_itemData?.m_shared == null || item.m_stack <= 0)

@@ -126,6 +126,7 @@ public class ItemDrop : Component
         public int m_quality = 1;
         public Vector2i m_gridPos;
         public byte m_worldLevel;
+        public bool m_cheated;
         public Dictionary<string, string> m_customData = new();
         public bool ThrowOnWeight;
         public Sprite GetIcon() => null;
@@ -156,7 +157,8 @@ public class ItemDrop : Component
             int count = (flags & 128) != 0 ? package.ReadByte() : 0;
             // Tests use small dictionaries. Real extended counts are covered by the original-DLL check.
             for (int i = 0; i < count; i++) item.m_customData[package.ReadString()] = package.ReadString();
-            _ = package.ReadByte();
+            byte additionalFlags = package.ReadByte();
+            item.m_cheated = version >= Version.Item.NewCheats && (additionalFlags & 1) != 0;
             return (hash, item);
         }
         public enum ItemType { Material, Fish }
@@ -172,7 +174,7 @@ public class ItemDrop : Component
 }
 
 // BinaryReader/Writer model the package primitives exercised here. The inventory double
-// reads the game's format-109 field order inspected in original DLLs, but only keeps
+// reads the game's format-109/110 field order inspected in original DLLs, but only keeps
 // fields needed by these storage tests. It deliberately skips unknown item prefabs, as the
 // installed game's Inventory.Load does, so production must reject the partial result.
 public class ZPackage
@@ -242,7 +244,7 @@ public class Inventory(string name, Sprite icon, int width, int height)
     public void Save(ZPackage package)
     {
         if (ThrowOnSave) throw new InvalidOperationException("Injected serialization failure.");
-        WriteFixture(package, m_inventory, 109);
+        WriteFixture(package, m_inventory, 110);
     }
     public static void WriteFixture(ZPackage package, IReadOnlyCollection<ItemDrop.ItemData> items, int version)
     {
@@ -261,7 +263,7 @@ public class Inventory(string name, Sprite icon, int width, int height)
             package.Write(TestPrefabHash.Of(item.m_dropPrefab.name));
             package.Write((byte)item.m_customData.Count); // small WriteNumItems case
             foreach (var pair in item.m_customData) { package.Write(pair.Key); package.Write(pair.Value); }
-            package.Write((byte)0); // cheated flags
+            package.Write((byte)(item.m_cheated ? 1 : 0));
         }
     }
     public void Load(ZPackage package)
@@ -282,13 +284,14 @@ public class Inventory(string name, Sprite icon, int width, int height)
             item.m_gridPos = data.m_gridPos;
             item.m_customData = data.m_customData;
             item.m_worldLevel = data.m_worldLevel;
+            item.m_cheated = data.m_cheated;
             m_inventory.Add(item);
         }
         Changed();
     }
 }
 
-public static class Version { public enum Item { ChunksNCheats = 109 } }
+public static class Version { public enum Item { ChunksNCheats = 109, NewCheats = 110 } }
 public static class TestPrefabHash
 {
     public static int Of(string name)
