@@ -8,6 +8,7 @@ namespace TrollingFishing;
 [HarmonyPatch(typeof(Fish), "FindFloat")]
 internal static class FishFindFloatFishingSkillPatch
 {
+    [HarmonyAfter(PathOfValheimanCompatibility.PluginGuid)]
     private static bool Prefix(Fish __instance, ref FishingFloat __result)
     {
         __result = FishingOverrideSystem.FindFloatWithSkillChance(__instance)!;
@@ -18,6 +19,7 @@ internal static class FishFindFloatFishingSkillPatch
 [HarmonyPatch(typeof(FishingFloat), nameof(FishingFloat.Catch))]
 internal static class FishingFloatCatchExtraDropSkillPatch
 {
+    [HarmonyAfter(PathOfValheimanCompatibility.PluginGuid)]
     private static bool Prefix(Fish fish, Character owner, out FishingOverrideSystem.ExtraDropChanceState __state, ref string __result)
     {
         __state = FishingOverrideSystem.ApplyExtraDropChance(fish, owner);

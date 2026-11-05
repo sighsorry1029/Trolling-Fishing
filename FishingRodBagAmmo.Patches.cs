@@ -28,9 +28,25 @@ internal static class HumanoidUseItemFishingRodBagPatch
 [HarmonyPatch(typeof(Attack), "UseAmmo")]
 internal static class AttackUseAmmoFishingRodBagPatch
 {
-    private static bool Prefix(Attack __instance, ref ItemDrop.ItemData ammoItem, ref bool __result)
+    [HarmonyAfter(PathOfValheimanCompatibility.PluginGuid)]
+    private static bool Prefix(Attack __instance, ref ItemDrop.ItemData ammoItem, ref bool __result, bool __runOriginal)
     {
-        return !FishingOverrideSystem.TryUseFishingRodBagAmmoForVanillaAttack(__instance, ref ammoItem, out __result);
+        if (!MultiLineFishingSystem.PrepareNativeBaitAmmo(__instance, ammoItem, __runOriginal, ref __result))
+        {
+            return false;
+        }
+
+        // HarmonyX still runs this Prefix when another Prefix owns the transaction.
+        if (!__runOriginal) return true;
+        ItemDrop.ItemData selectedAmmo = ammoItem;
+        if (!FishingOverrideSystem.TryUseFishingRodBagAmmoForVanillaAttack(__instance, ref selectedAmmo, out bool result))
+        {
+            return true;
+        }
+
+        ammoItem = selectedAmmo;
+        __result = result;
+        return false;
     }
 }
 

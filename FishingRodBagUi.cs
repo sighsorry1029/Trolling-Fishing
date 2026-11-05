@@ -92,7 +92,8 @@ internal static partial class FishingOverrideSystem
         if (inventoryGui == null ||
             !InventoryGui.IsVisible() ||
             TrollingFishingPlugin.FishingRodBag.Value.IsOff() ||
-            EpicLootBagCompatibility.ShouldYieldUse)
+            EpicLootBagCompatibility.ShouldYieldUse(inventoryGui) ||
+            PathOfValheimanCompatibility.ShouldYieldInventoryInput)
         {
             return false;
         }
@@ -115,17 +116,6 @@ internal static partial class FishingOverrideSystem
         if (!IsFishingRod(hoveredItem) || !player.IsOwner() || !player.GetInventory().ContainsItem(hoveredItem))
         {
             return false;
-        }
-
-        if (EpicLootBagCompatibility.IsSocketGridOpen)
-        {
-            // Let EpicLoot save its sockets and detach UI handlers before Show.
-            CloseFishingRodBagContainerOnly(inventoryGui);
-            if (EpicLootBagCompatibility.IsSocketGridOpen || Player.m_localPlayer != player ||
-                !player.IsOwner() || !player.GetInventory().ContainsItem(hoveredItem))
-            {
-                return false;
-            }
         }
 
         OpenFishingRodBag(player, hoveredItem);

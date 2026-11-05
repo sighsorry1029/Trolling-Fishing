@@ -483,6 +483,7 @@
         <Compile Include="MultiLineFishingFloat.cs" />
         <Compile Include="MultiLineFishingFloat.Patches.cs" />
         <Compile Include="MultiLineFishingSystem.cs" />
+        <Compile Include="PathOfValheimanCompatibility.cs" />
         <Compile Include="Plugin.cs" />
         <Compile Include="ProjectileAccess.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />

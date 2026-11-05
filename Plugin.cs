@@ -13,14 +13,15 @@ namespace TrollingFishing;
 [BepInDependency("WackyMole.ItemRequiresSkillLevel", BepInDependency.DependencyFlags.SoftDependency)]
 [BepInDependency("Detalhes.ItemRequiresSkillLevel", BepInDependency.DependencyFlags.SoftDependency)]
 [BepInDependency(EpicLootBagCompatibility.PluginGuid, BepInDependency.DependencyFlags.SoftDependency)]
+[BepInDependency(PathOfValheimanCompatibility.PluginGuid, BepInDependency.DependencyFlags.SoftDependency)]
 public class TrollingFishingPlugin : BaseUnityPlugin
 {
     internal const string ModName = "TrollingFishing";
-    internal const string ModVersion = "1.1.4";
+    internal const string ModVersion = "1.1.6";
     internal const string Author = "sighsorry";
     internal const int FishingRodMultiLineMinCount = 2;
     internal const int FishingRodMultiLineMaxCount = 10;
-    private const string ModGUID = $"{Author}.{ModName}";
+    internal const string ModGUID = $"{Author}.{ModName}";
     private static readonly string ConfigFileName = $"{ModGUID}.cfg";
     private static readonly string ConfigFileFullPath = Paths.ConfigPath + Path.DirectorySeparatorChar + ConfigFileName;
     private readonly Harmony _harmony = new(ModGUID);
@@ -87,6 +88,7 @@ public class TrollingFishingPlugin : BaseUnityPlugin
 
         Assembly assembly = Assembly.GetExecutingAssembly();
         EpicLootBagCompatibility.Initialize();
+        PathOfValheimanCompatibility.Initialize();
         _harmony.PatchAll(assembly);
         FishingLocalization.LoadLocalizationLater();
         SetupWatcher();
@@ -102,12 +104,15 @@ public class TrollingFishingPlugin : BaseUnityPlugin
 
     private void OnDestroy()
     {
+        // Release EpicLoot's callback even if config saving or later teardown fails.
+        EpicLootBagCompatibility.Reset();
         SaveWithRespectToConfigSet();
         _watcher?.Dispose();
         _baitConfigWatcher?.Dispose();
         FishingRodKeyHintSystem.Shutdown();
         _harmony.UnpatchSelf();
-        EpicLootBagCompatibility.Reset();
+        PathOfValheimanCompatibility.Reset();
+        MultiLineFishingSystem.ResetNativeBaitCasts();
         FishingLocalization.Shutdown();
     }
 

@@ -35,9 +35,9 @@ internal static class BaitSourceTrackerState
 
 internal static partial class FishingOverrideSystem
 {
-    internal static IDisposable BeginMultiLineFishingSetup()
+    internal static IDisposable BeginMultiLineFishingSetup(bool freeBait = false)
     {
-        MultiLineFishingCastState.SetupContexts.Add(MultiLineFishingSetupContext.Empty);
+        MultiLineFishingCastState.SetupContexts.Add(new MultiLineFishingSetupContext(null, null, 0, 0, default, freeBait: freeBait));
         return new MultiLineFishingSetupScope();
     }
 
@@ -49,7 +49,8 @@ internal static partial class FishingOverrideSystem
             sourceMarker.LineIndex,
             sourceMarker.PrimaryEquivalentLineIndex,
             sourceMarker.TrackedBait,
-            consumeTrackedBaitOnSetup));
+            consumeTrackedBaitOnSetup,
+            sourceMarker.FreeBait));
         return new MultiLineFishingSetupScope();
     }
 
@@ -73,7 +74,8 @@ internal static partial class FishingOverrideSystem
             context.LineIndex,
             context.PrimaryEquivalentLineIndex,
             context.TrackedBait,
-            context.Rod);
+            context.Rod,
+            context.FreeBait);
     }
 
     internal static void MarkMultiLineFishingObject(
@@ -82,7 +84,8 @@ internal static partial class FishingOverrideSystem
         int lineIndex = 0,
         int primaryEquivalentLineIndex = 0,
         MultiLineBaitReservation trackedBait = default,
-        ItemDrop.ItemData? rod = null)
+        ItemDrop.ItemData? rod = null,
+        bool freeBait = false)
     {
         if (projectileObject == null || owner == null)
         {
@@ -91,9 +94,17 @@ internal static partial class FishingOverrideSystem
 
         MultiLineFishingFloatMarker marker = projectileObject.GetComponent<MultiLineFishingFloatMarker>() ??
                                              projectileObject.AddComponent<MultiLineFishingFloatMarker>();
-        marker.Initialize(owner, rod, Time.time + MultiLineFishingCastState.AttackGrace, lineIndex, primaryEquivalentLineIndex, trackedBait);
+        marker.Initialize(owner, rod, Time.time + MultiLineFishingCastState.AttackGrace, lineIndex, primaryEquivalentLineIndex, trackedBait, freeBait);
 
-        if (trackedBait.IsValid)
+        if (freeBait)
+        {
+            // PoV marks only its singleton's first float. Every line of this cast is free.
+            ZNetView view = projectileObject.GetComponent<ZNetView>();
+            if (view != null && view.IsValid() && view.IsOwner())
+                view.GetZDO().Set(PathOfValheimanCompatibility.FreeBaitKey, true);
+        }
+
+        if (!freeBait && trackedBait.IsValid)
         {
             MarkFishingBaitReturnSource(projectileObject, trackedBait, CurrentMultiLineSetupContext().ConsumeTrackedBaitOnSetup);
         }
@@ -443,6 +454,9 @@ internal static partial class FishingOverrideSystem
             return false;
         }
 
+        // This also protects TF's direct return path if PoV is no longer active.
+        if (IsFreeFishingBait(fishingFloat)) return true;
+
         if (TryReturnTrackedBaitToOriginalSource(fishingFloat.gameObject, fishingFloat))
         {
             return true;
@@ -462,6 +476,12 @@ internal static partial class FishingOverrideSystem
         }
 
         return marker.IsAdditionalLine;
+    }
+
+    private static bool IsFreeFishingBait(FishingFloat fishingFloat)
+    {
+        return fishingFloat.GetComponent<MultiLineFishingFloatMarker>()?.FreeBait == true ||
+               fishingFloat.GetComponent<ZNetView>()?.GetZDO()?.GetBool(PathOfValheimanCompatibility.FreeBaitKey) == true;
     }
 
     internal static void TrySettleBaitAfterProjectileGroundHit(Projectile projectile, Collider collider, bool water)
@@ -693,8 +713,9 @@ internal static partial class FishingOverrideSystem
         internal readonly int PrimaryEquivalentLineIndex;
         internal readonly MultiLineBaitReservation TrackedBait;
         internal readonly bool ConsumeTrackedBaitOnSetup;
+        internal readonly bool FreeBait;
 
-        internal MultiLineFishingSetupContext(Character? owner, ItemDrop.ItemData? rod, int lineIndex, int primaryEquivalentLineIndex, MultiLineBaitReservation trackedBait, bool consumeTrackedBaitOnSetup = false)
+        internal MultiLineFishingSetupContext(Character? owner, ItemDrop.ItemData? rod, int lineIndex, int primaryEquivalentLineIndex, MultiLineBaitReservation trackedBait, bool consumeTrackedBaitOnSetup = false, bool freeBait = false)
         {
             Owner = owner;
             Rod = rod;
@@ -702,6 +723,7 @@ internal static partial class FishingOverrideSystem
             PrimaryEquivalentLineIndex = Mathf.Max(0, primaryEquivalentLineIndex);
             TrackedBait = trackedBait;
             ConsumeTrackedBaitOnSetup = consumeTrackedBaitOnSetup;
+            FreeBait = freeBait;
         }
     }
 
@@ -770,8 +792,9 @@ internal static partial class FishingOverrideSystem
         internal int PrimaryEquivalentLineIndex => _primaryEquivalentLineIndex;
         internal bool IsAdditionalLine => _lineIndex != _primaryEquivalentLineIndex;
         internal MultiLineBaitReservation TrackedBait => _trackedBait;
+        internal bool FreeBait { get; private set; }
 
-        internal void Initialize(Character owner, ItemDrop.ItemData? rod, float ignoreAttackUntil, int lineIndex, int primaryEquivalentLineIndex, MultiLineBaitReservation trackedBait)
+        internal void Initialize(Character owner, ItemDrop.ItemData? rod, float ignoreAttackUntil, int lineIndex, int primaryEquivalentLineIndex, MultiLineBaitReservation trackedBait, bool freeBait)
         {
             _owner = owner;
             _rod = rod;
@@ -779,6 +802,7 @@ internal static partial class FishingOverrideSystem
             _lineIndex = Mathf.Max(0, lineIndex);
             _primaryEquivalentLineIndex = Mathf.Max(0, primaryEquivalentLineIndex);
             _trackedBait = trackedBait;
+            FreeBait = freeBait;
             _initialAttackEnded = false;
             _loggedInitialAttackSkip = false;
         }

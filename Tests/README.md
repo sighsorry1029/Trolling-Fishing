@@ -1,5 +1,104 @@
 # Storage regression checks
 
+## Current EpicLoot input integration (2026-11-05)
+
+The adapter now uses EpicLoot's GUI-aware shard-input decision and registers enabled
+fishing bags through its item-container API, reviewed against EpicLoot 0.15.6.
+It also yields the focused shard panel's gamepad close gesture before fishing bag
+full-close handling. The independent shard panel no longer triggers a chest close.
+The API is bound once during initialization; no version/hash gate, old socket-UI
+fallback, new save format, or migration was added. Reset unregisters our callback,
+and plugin destruction starts with that cleanup before config saving.
+
+See [EpicLoot checks](EpicLoot/README.md) for adapter failure/cleanup tests and the
+original-DLL Unity Mono contract probe: 34/34 source-linked adapter checks and
+20/20 original-DLL registry/access checks passed. The existing storage harness passed 32/32
+checks, and the final-DLL UI/Harmony probe passed 16/16. The Debug build completed
+with zero warnings/errors and its merged DLL matched the deployed Steam plugins DLL.
+The manifest dependency is now BepInExPack 5.4.2360; that Debug validation generated no Release package.
+
+Release 1.1.6 follow-up: `dotnet build TrollingFishing.sln -c Release -p:CreatePackages=true`
+completed with zero warnings/errors. The final merged Release DLL passed 16 UI/Harmony,
+20 original EpicLoot API/Mono-access, and 35 PoV contract checks. The PoV DLL was
+located in the current `PathOfValheim` Gale profile; the earlier `asdfasdf` path no
+longer exists. Both ZIPs passed CRC checks and contain exactly their expected source
+files, including the final DLL. Assembly version is 1.1.6.0; BepInPlugin, file and
+manifest versions are 1.1.6. This adds no actual game or server execution validation.
+
+Still required in game: EpicLoot absent/present, ordinary/socketed rods, bag on/off,
+bare Use, modified/separate/rebound socket keys, prompts, gamepad player-grid focus
+and shard-panel focus (including ButtonY), and both bag/shard opening orders.
+Check drag/quickmove, saved bait and socket contents after close/reconnect, and
+client/host/dedicated-server behavior. The isolated checks do not execute these UI,
+save/event, or multiplayer flows. The older EpicLoot section below is historical.
+
+## Path of Valheiman follow-up (2026-10-25)
+
+The optional integration targets the reviewed Native Bait contract from PoV 5.3.2,
+with Valheim 1.0.20 original references. No game DLL publicization, new saved bag
+format, migration, legacy support, or hard PoV dependency was added.
+
+Validation performed:
+
+- Existing storage checks: 32/32 passed.
+- [Linked casting-flow checks](NativeBait/README.md): 19/19 passed. Free and paid
+  2/3/10-line casts, output preservation, talent changes, failed generated bait,
+  contract failures at three transaction boundaries, and per-Attack isolation.
+  Restoring the old output-clobbering bug in a temporary source copy failed the
+  corresponding test, as expected.
+- Final-DLL UI/Harmony probe: 16/16 passed in installed Unity Mono/HarmonyX.
+  Effective priority/order metadata, both registration orders for four calculation
+  boundaries, and canceled Hide/CloseContainer preserving proxy lifetime.
+  Ordering detours execute probe-only role methods with production metadata,
+  not the actual gameplay Prefix bodies.
+- Final-DLL PoV contract probe: 35/35 passed in installed Unity Mono. The supplied
+  original PoV DLL is accepted; unrelated MVID/version/method/resource changes and
+  branch offset/encoding changes are accepted. Relevant NativeFor/Free/SetCatch IL
+  and NativeBait enum changes are rejected. Actual PoV patch declarations match
+  the expected targets; synthetic Harmony registration metadata exercises missing,
+  wrong-owner, wrong-kind, duplicate, and modified-helper rejection and recovery.
+  This registration test does not install PoV gameplay detours.
+- `dotnet build TrollingFishing.sln -c Debug -p:DeployToGame=true`: succeeded with
+  zero warnings/errors. Final merged DLL and the default Steam plugins copy have
+  matching SHA-256. No Release package was generated during that Debug validation.
+
+Release 1.1.5 follow-up: `dotnet build TrollingFishing.sln -c Release -p:CreatePackages=true`
+completed with zero warnings/errors. The final Release DLL passed the 16 UI/Harmony
+and 35 PoV contract checks above. Both ZIPs contain that exact DLL; the Thunderstore
+manifest, changelog, README, icon, and English template match their sources. Assembly
+version is 1.1.5.0, file/manifest version is 1.1.5, and BepInExPack remains 5.4.2351.
+This does not add in-game or multiplayer validation.
+
+Run the casting harness as documented in its directory. For the original-runtime
+probes, build the mod first, then run these commands sequentially (replace Python
+and PoV paths with the local installations):
+
+```powershell
+dotnet build Tests/PathOfValheimanUiProbe.csproj -c Debug
+dotnet build Tests/PoVContract/PathOfValheimanContractProbe.csproj -c Debug
+$probePython = 'C:\Users\blizz\.codex\references\valheim\tools\unitypy-resource-review-r1\Scripts\python.exe'
+$povDll = 'C:\Users\blizz\AppData\Roaming\com.kesomannen.gale\valheim\profiles\PathOfValheim\BepInEx\plugins\treextr-PathOfValheiman\PathOfValheiman\PathOfValheiman.dll'
+& $probePython Tests/run-mono-probe.py Tests/bin/Debug/net48/PathOfValheimanUiProbe.exe
+& $probePython Tests/run-mono-probe.py Tests/PoVContract/bin/Debug/net48/PathOfValheimanContractProbe.exe bin/Debug/TrollingFishing.dll $povDll
+```
+
+The contract verifier reads only relevant methods once at initialization, caches
+delegates/accessors, and checks active patch registrations at cast boundaries.
+It does not check an entire DLL hash/version or scan IL each frame. This narrow
+structural check is conservative; it does not prove arbitrary future code equivalent
+or cover every other mod's patches. Replacing a loaded DLL is unsupported.
+
+Still required in game: Native Bait on/off with bag off/empty/selected bait and
+inventory bait; empty recall, hooked fish/refund, ground hit, new-cast replacement,
+full inventory, rod/talent changes; free flag replication and no item gains/losses
+on client/host/dedicated server. Test PoV trash/filter/search windows with Use,
+Escape/Inventory/B/Y, canceled closing followed by normal closing, and event cleanup.
+Compare draw costs and Deep Cast/bite/catch effects, with PoV absent and installed.
+The float lifecycle/ZDO and actual return/refund path were reviewed statically,
+not executed in a Unity scene. Crossplay and other mods' interactions are unverified.
+
+## Running the storage harness
+
 Run from the repository root with the .NET 10 SDK:
 
 ```powershell

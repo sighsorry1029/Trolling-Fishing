@@ -35,7 +35,7 @@ Check out fishing 10 lines
 ### FishingRod bag
 
 - Hover a FishingRod in the player inventory and press the Use key to open its fishing bag.
-- With EpicLoot 0.14.5 installed, Use opens the fishing bag before EpicLoot handles the key. Hold EpicLoot's configured Socket Overlay Modifier (normally LeftAlt) with Use for its socket UI. Confirmation prompts retain control; switching from sockets to the bag closes and saves sockets first. Keep NewtonsoftJsonDetector installed. Fishing rod hints retain their original orange color with EpicLoot installed.
+- With EpicLoot's current shard input API (checked against 0.15.6), enabled fishing bags are registered as item containers. Bare Use opens the bag; EpicLoot's configured modified or separate socket shortcut and gamepad gestures retain their socket behavior. Confirmation prompts and the focused shard panel's gamepad close gesture retain control. The shard panel is independent of chest/bag storage and manages its own saving and cleanup. If the required API cannot be bound, fishing bag input yields to EpicLoot. Fishing rod hints retain their original orange color with EpicLoot installed.
 - The bag is saved on the rod item itself.
 - The bag accepts fish, fishing bait, and supported FishChum items.
 - Caught fish try to go into the equipped FishingRod bag first.
@@ -66,6 +66,14 @@ The bag accepts:
 If AzuCraftyBoxes is installed, FishingRod bags in the player's inventory can be exposed as nearby containers for crafting and cooking pulls.
 
 The proxy container is created only around crafting/cooking lookup contexts and is cleaned up afterward. FishingRods inside external chests are not recursively exposed.
+
+### Path of Valheiman compatibility
+
+The optional integration was developed against Path of Valheiman 5.3.2. Native Bait casts use its generated bait for every line without reserving or returning physical bait. The integration checks the relevant bait implementation and active patches; an unrecognized contract stops multi-line casting before TrollingFishing consumes bait. It does not require a particular whole-DLL hash or version number.
+
+PoV's trash and loot-filter windows retain input control, and a canceled inventory close keeps the fishing bag open. Draw stamina cost uses the game's getter so PoV's cost effects apply. Deep Cast, bite modifiers, and catch metadata run before TrollingFishing's corresponding calculations. PoV's vanilla-skill freeze policy remains in effect, including its effect on bag capacity and fishing bonuses.
+
+Managed casting, storage, contract, and Harmony checks are documented under `Tests/`. Actual gameplay, free-bait recovery/refunds, UI interaction, and client/host/dedicated-server behavior still require in-game verification. Runtime replacement of the PoV DLL is not supported.
 
 ### Localization
 

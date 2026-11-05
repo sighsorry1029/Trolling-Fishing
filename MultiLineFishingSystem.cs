@@ -13,6 +13,9 @@ internal static class MultiLineFishingSystem
     private static readonly MethodInfo MemberwiseCloneMethod = AccessTools.Method(typeof(object), "MemberwiseClone")!;
     private static readonly ConditionalWeakTable<Player, DrawState> DrawStates = new();
     private static readonly ConditionalWeakTable<Humanoid, AmmoSelectionState> AmmoSelectionStates = new();
+    private static ConditionalWeakTable<Attack, NativeBaitCast> NativeBaitCasts = new();
+
+    internal static void ResetNativeBaitCasts() => NativeBaitCasts = new();
 
     internal static bool TryPrepareSecondaryStart(Humanoid humanoid, ItemDrop.ItemData? weapon, ref bool result)
     {
@@ -28,6 +31,21 @@ internal static class MultiLineFishingSystem
         }
 
         EnsureFishingRodSecondaryAttack(weapon!);
+        ForgetAmmoSelection(humanoid);
+        if (!PathOfValheimanCompatibility.TryGetFreeCast(humanoid, weapon!, out bool freeBait) ||
+            (freeBait && !PathOfValheimanCompatibility.ValidateNativeBaitPatches()))
+        {
+            return RejectNativeBaitCast(humanoid, ref result);
+        }
+        if (freeBait)
+        {
+            AmmoSelectionStates.Add(humanoid, new AmmoSelectionState
+            {
+                Weapon = weapon, FreeBait = true, CreatedAt = Time.time
+            });
+            return true;
+        }
+
         string ammoType = weapon!.m_shared.m_ammoType;
         if (string.IsNullOrWhiteSpace(ammoType))
         {
@@ -74,7 +92,7 @@ internal static class MultiLineFishingSystem
         }
 
         bool drawHeld = attackHold || secondaryAttackHold;
-        float drawStaminaDrain = GetSkillAdjustedDrawCost(player, weapon, weapon.m_shared.m_attack.m_drawStaminaDrain);
+        float drawStaminaDrain = Mathf.Max(0f, weapon.GetDrawStaminaDrain());
         float drawEitrDrain = weapon.m_shared.m_attack.m_drawEitrDrain;
         bool hasStamina = drawStaminaDrain <= 0f || player.HaveStamina();
         bool hasEitr = drawEitrDrain <= 0f || player.HaveEitr();
@@ -175,17 +193,6 @@ internal static class MultiLineFishingSystem
         weapon.m_shared.m_secondaryAttack = secondary;
     }
 
-    private static float GetSkillAdjustedDrawCost(Player player, ItemDrop.ItemData weapon, float rawDrawCost)
-    {
-        if (rawDrawCost <= 0f)
-        {
-            return 0f;
-        }
-
-        float skillFactor = player.GetSkillFactor(weapon.m_shared.m_skillType);
-        return rawDrawCost - rawDrawCost * 0.33f * skillFactor;
-    }
-
     private static float ResolveSecondaryReleaseExtraStamina(Player player, ItemDrop.ItemData weapon, float drawStaminaDrain, bool pendingSecondary)
     {
         if (!pendingSecondary || drawStaminaDrain <= 0f)
@@ -226,7 +233,41 @@ internal static class MultiLineFishingSystem
         state.Weapon = weapon;
         state.AmmoItem = selection.AmmoItem;
         state.Source = selection.Source;
+        state.FreeBait = false;
         state.CreatedAt = Time.time;
+    }
+
+    // The preflight is a plan; only PoV's successful UseAmmo output commits a free cast.
+    // Keep that receipt on this Attack so changing talents cannot turn its floats into real bait.
+    internal static bool PrepareNativeBaitAmmo(Attack attack, ItemDrop.ItemData ammo, bool runOriginal, ref bool result)
+    {
+        NativeBaitCasts.Remove(attack);
+        if (!FishingOverrideSystem.IsFishingRod(attack.GetWeapon())) return true;
+        Humanoid owner = FishingGameAccess.AttackCharacter(attack);
+        bool multiLine = IsActiveMultiLineAttack(attack);
+        bool plannedFree = multiLine && AmmoSelectionStates.TryGetValue(owner, out AmmoSelectionState planned) &&
+            ReferenceEquals(planned.Weapon, attack.GetWeapon()) && !planned.IsExpired && planned.FreeBait;
+
+        if (!runOriginal && result && PathOfValheimanCompatibility.IsNativeAmmo(attack, ammo))
+        {
+            if (multiLine && !PathOfValheimanCompatibility.ValidateNativeBaitPatches())
+                return RejectNativeBaitCast(owner, ref result);
+            NativeBaitCasts.Add(attack, new NativeBaitCast(ammo));
+            return true;
+        }
+
+        bool known = PathOfValheimanCompatibility.TryGetFreeCast(owner, attack.GetWeapon(), out bool freeNow);
+        if (plannedFree || (multiLine && !known) || (known && freeNow))
+            return RejectNativeBaitCast(owner, ref result);
+        return true;
+    }
+
+    private static bool RejectNativeBaitCast(Humanoid owner, ref bool result)
+    {
+        ForgetAmmoSelection(owner);
+        owner.Message(MessageHud.MessageType.Center, "$tf_pov_cast_unavailable");
+        result = false;
+        return false;
     }
 
     private static void ForgetAmmoSelection(Humanoid humanoid)
@@ -302,15 +343,32 @@ internal static class MultiLineFishingSystem
 
         int configuredFloatCount = ResolveCount();
         int additionalFloatCount = Mathf.Max(0, configuredFloatCount - 1);
-        ItemDrop.ItemData ammoItem = FishingGameAccess.AttackAmmo(attack) ?? FishingGameAccess.LastAmmo(attack);
-        if (!TryResolvePreparedAmmoSelection(attack, ammoItem, out FishingOverrideSystem.FishingRodAmmoSelection selection))
+        ItemDrop.ItemData? ammoItem = FishingGameAccess.AttackAmmo(attack) ?? FishingGameAccess.LastAmmo(attack);
+        bool freeBait = NativeBaitCasts.TryGetValue(attack, out NativeBaitCast nativeCast);
+        FishingOverrideSystem.FishingRodAmmoSelection selection = default;
+        if (freeBait)
+        {
+            if (!PathOfValheimanCompatibility.ValidateNativeBaitPatches())
+            {
+                bool ignored = false;
+                RejectNativeBaitCast(FishingGameAccess.AttackCharacter(attack), ref ignored);
+                return true;
+            }
+            ammoItem = nativeCast.Ammo;
+            ForgetAmmoSelection(FishingGameAccess.AttackCharacter(attack));
+        }
+        else if (!TryResolvePreparedAmmoSelection(attack, ammoItem, out selection))
         {
             FishingGameAccess.AttackCharacter(attack).Message(MessageHud.MessageType.Center, "$msg_outof " + attack.GetWeapon().m_shared.m_ammoType);
             return true;
         }
 
         ammoItem ??= selection.AmmoItem;
-        if (FishingOverrideSystem.CountAvailableAmmoFromSource(FishingGameAccess.AttackCharacter(attack), attack.GetWeapon(), attack.GetWeapon().m_shared.m_ammoType, ammoItem, selection.Source) < additionalFloatCount)
+        if (ammoItem == null)
+        {
+            return true;
+        }
+        if (!freeBait && FishingOverrideSystem.CountAvailableAmmoFromSource(FishingGameAccess.AttackCharacter(attack), attack.GetWeapon(), attack.GetWeapon().m_shared.m_ammoType, ammoItem, selection.Source) < additionalFloatCount)
         {
             FishingGameAccess.AttackCharacter(attack).Message(MessageHud.MessageType.Center, "$msg_outof " + attack.GetWeapon().m_shared.m_ammoType);
             return true;
@@ -325,23 +383,23 @@ internal static class MultiLineFishingSystem
         }
 
         List<FishingOverrideSystem.MultiLineBaitReservation> baitReservations =
-            FishingOverrideSystem.ReserveAdditionalMultiLineFishingBaits(
+            freeBait ? new() : FishingOverrideSystem.ReserveAdditionalMultiLineFishingBaits(
                 FishingGameAccess.AttackCharacter(attack),
                 attack.GetWeapon(),
                 attack.GetWeapon().m_shared.m_ammoType,
                 ammoItem,
                 selection.Source,
                 additionalFloatCount);
-        if (baitReservations.Count < additionalFloatCount)
+        if (!freeBait && baitReservations.Count < additionalFloatCount)
         {
             FishingGameAccess.AttackCharacter(attack).Message(MessageHud.MessageType.Center, "$msg_outof " + attack.GetWeapon().m_shared.m_ammoType);
             return true;
         }
 
-        int floatCount = Mathf.Max(1, baitReservations.Count + 1);
+        int floatCount = freeBait ? configuredFloatCount : Mathf.Max(1, baitReservations.Count + 1);
         int primaryEquivalentLineIndex = GetPrimaryEquivalentLineIndex(floatCount);
         FishingOverrideSystem.MultiLineBaitReservation primaryBaitReturnSource =
-            FishingOverrideSystem.ResolveAttackBaitReturnSource(attack, FishingGameAccess.LastAmmo(attack));
+            freeBait ? default : FishingOverrideSystem.ResolveAttackBaitReturnSource(attack, FishingGameAccess.LastAmmo(attack));
 
         FishingOverrideSystem.DestroyExistingFishingFloats(FishingGameAccess.AttackCharacter(attack));
         PrepareCustomProjectileBurst(attack);
@@ -361,7 +419,7 @@ internal static class MultiLineFishingSystem
         float spreadAngle = Mathf.Max(0f, TrollingFishingPlugin.FishingRodMultiLineSpreadAngle.Value);
         float startAngle = floatCount > 1 ? -spreadAngle * 0.5f : 0f;
         float angleStep = floatCount > 1 ? spreadAngle / (floatCount - 1) : 0f;
-        using (FishingOverrideSystem.BeginMultiLineFishingSetup())
+        using (FishingOverrideSystem.BeginMultiLineFishingSetup(freeBait))
         {
             float speed = ResolveProjectileSpeed(launchData);
             int reservationIndex = 0;
@@ -385,7 +443,8 @@ internal static class MultiLineFishingSystem
                     projectileIndex,
                     primaryEquivalentLineIndex,
                     trackedBait,
-                    attack.GetWeapon());
+                    attack.GetWeapon(),
+                    freeBait);
             }
         }
 
@@ -628,9 +687,16 @@ internal static class MultiLineFishingSystem
         public ItemDrop.ItemData? Weapon;
         public ItemDrop.ItemData? AmmoItem;
         public FishingOverrideSystem.FishingRodAmmoSource Source;
+        public bool FreeBait;
         public float CreatedAt;
 
         public bool IsExpired => Time.time - CreatedAt > 10f;
+    }
+
+    private sealed class NativeBaitCast
+    {
+        internal readonly ItemDrop.ItemData Ammo;
+        internal NativeBaitCast(ItemDrop.ItemData ammo) => Ammo = ammo;
     }
 }
 
@@ -685,6 +751,7 @@ internal static class HumanoidStartAttackMultiLineFishingPatch
 [HarmonyPatch(typeof(Attack), "FireProjectileBurst")]
 internal static class AttackFireProjectileBurstMultiLineFishingPatch
 {
+    [HarmonyAfter(PathOfValheimanCompatibility.PluginGuid)]
     private static bool Prefix(Attack __instance, out IDisposable? __state)
     {
         __state = null;
