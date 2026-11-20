@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="../FishingRodBagStorage.cs" Link="Production/FishingRodBagStorage.cs" />
     <Compile Include="../FishingRodBagRules.cs" Link="Production/FishingRodBagRules.cs" />
+    <Compile Include="../FishingRodBagCraftFrom.cs" Link="Production/FishingRodBagCraftFrom.cs" />
     <Compile Include="GameStubs.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>

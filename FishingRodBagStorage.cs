@@ -208,6 +208,13 @@ internal static partial class FishingOverrideSystem
         return Mathf.Lerp(1f, targetMultiplier, skillFactor);
     }
 
+    private static ItemDrop.ItemData? ResolveCarriedFishingRod(Player player, Inventory inventory)
+    {
+        ItemDrop.ItemData equipped = player.GetCurrentWeapon();
+        if (IsFishingRod(equipped) && inventory.ContainsItem(equipped)) return equipped;
+        return inventory.GetAllItems().Find(IsFishingRod);
+    }
+
     private static int ResolveTargetSlotCount(Player player)
     {
         return NormalizeFishingRodBagSlotCount(ResolveConfiguredSlotCount(player));
@@ -446,7 +453,7 @@ internal static partial class FishingOverrideSystem
         return allItems;
     }
 
-    private static void SaveFishingRodBagStoredItems(ItemDrop.ItemData rod, List<ItemDrop.ItemData> allItems)
+    private static void SaveFishingRodBagStoredItems(ItemDrop.ItemData rod, List<ItemDrop.ItemData> allItems, Action? beforeCommit = null)
     {
         if (allItems.Count > FishingRodBagStoreState.MaxSlots)
         {
@@ -477,6 +484,7 @@ internal static partial class FishingOverrideSystem
         List<ItemDrop.ItemData> storedItems = storageInventory.GetAllItems();
         if (storedItems.Count == 0)
         {
+            beforeCommit?.Invoke();
             rod.m_customData.Remove(FishingRodBagStoreState.BagDataKey);
             rod.m_customData.Remove(FishingRodBagStoreState.BagWeightKey);
             return;
@@ -486,6 +494,7 @@ internal static partial class FishingOverrideSystem
         storageInventory.Save(package);
         string rawData = package.GetBase64();
         float weight = CalculateFishingRodBagWeight(storedItems);
+        beforeCommit?.Invoke();
         rod.m_customData[FishingRodBagStoreState.BagDataKey] = rawData;
         SetFishingRodBagWeightCache(rod, weight);
     }

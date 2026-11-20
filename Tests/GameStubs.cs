@@ -219,13 +219,16 @@ public class Inventory(string name, Sprite icon, int width, int height)
     public Sprite Icon { get; } = icon;
     public static int LoadCalls;
     public static bool ThrowOnSave;
+    public static System.Action DuringSave;
     public readonly List<ItemDrop.ItemData> m_inventory = new();
     public int ChangedCalls;
     public List<ItemDrop.ItemData> GetAllItems() => m_inventory;
     public int GetWidth() => width;
     public int GetHeight() => height;
     public void Changed() => ChangedCalls++;
-    public void NotifyChanged() => Changed();
+    public System.Action OnNotify;
+    public bool ContainsItem(ItemDrop.ItemData item) => m_inventory.Contains(item);
+    public void NotifyChanged() { Changed(); OnNotify?.Invoke(); }
     public bool CanAddItem(ItemDrop.ItemData item) => m_inventory.Count < width * height;
     public bool CanAddItem(GameObject prefab, int stack) => m_inventory.Count < width * height;
     public bool AddItem(ItemDrop.ItemData item)
@@ -243,6 +246,7 @@ public class Inventory(string name, Sprite icon, int width, int height)
     }
     public void Save(ZPackage package)
     {
+        DuringSave?.Invoke();
         if (ThrowOnSave) throw new InvalidOperationException("Injected serialization failure.");
         WriteFixture(package, m_inventory, 110);
     }
@@ -309,8 +313,32 @@ public static class TestPrefabHash
         }
     }
 }
+namespace BepInEx.Bootstrap
+{
+    public sealed class PluginInfo { public object Instance = new(); }
+    public static class Chainloader { public static readonly Dictionary<string, PluginInfo> PluginInfos = new(); }
+}
+namespace CraftFrom
+{
+    public static class API
+    {
+        public static bool Registered;
+        public static Func<Player, ItemDrop.ItemData> Select;
+        public static IDisposable RegisterCarriedMaterialSource(string id, Func<Player, ItemDrop.ItemData> select,
+            Func<Player, ItemDrop.ItemData, Inventory> read, Func<Player, ItemDrop.ItemData, Inventory, bool> current,
+            Action<Player, ItemDrop.ItemData, Inventory> save)
+        {
+            if (Registered) throw new InvalidOperationException();
+            Select = select;
+            Registered = true;
+            return new Registration();
+        }
+        private sealed class Registration : IDisposable { public void Dispose() { Registered = false; Select = null; } }
+    }
+}
 namespace TrollingFishing
 {
+    internal static class FishingRodBagUiState { internal static readonly HashSet<ItemDrop.ItemData> OpenRods = new(); }
     public enum Toggle { Off, On }
     public static class ToggleExtensions
     {
@@ -325,6 +353,7 @@ namespace TrollingFishing
     }
     public static class TrollingFishingPlugin
     {
+        public const string ModGUID = "sighsorry.TrollingFishing";
         public static readonly Setting<Toggle> FishingRodBag = new(Toggle.On);
         public static readonly Setting<Toggle> FishingRodBagCountsWeight = new(Toggle.On);
         public static readonly Setting<Toggle> FishingRodBagScalesWithFishingSkill = new(Toggle.On);

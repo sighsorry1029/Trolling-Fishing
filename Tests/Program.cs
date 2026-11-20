@@ -46,6 +46,10 @@ internal static class Program
             ("weight exception preserves existing metadata", WeightFailure),
             ("normal bag rules remain distinct from player inventory", AllowedItemRules),
             ("normal empty save clears data and weight only", SaveEmpty),
+            ("CraftFrom selects only the local closed carried rod and releases its registration", CraftFromSelection),
+            ("CraftFrom rejects stale and unreadable views without writing", CraftFromStale),
+            ("CraftFrom debits visible stacks without dropping overflow or losing rollback", CraftFromOverflow),
+            ("CraftFrom preserves concurrent writes during serialization and notification", CraftFromConcurrent),
         });
 
         int failures = 0;
@@ -78,6 +82,8 @@ internal static class Program
         _player.Inventory.m_inventory.Add(_rod);
         Inventory.LoadCalls = 0;
         Inventory.ThrowOnSave = false;
+        Inventory.DuringSave = null;
+        FishingRodBagUiState.OpenRods.Clear();
         Item.CloneCalls = 0;
         UnityEngine.Object.DestroyCalls = 0;
         Bag.TestProxyRefreshCalls = 0;
@@ -141,6 +147,103 @@ internal static class Program
         try { action(); }
         catch (InvalidOperationException) { return; }
         throw new Exception("Expected InvalidOperationException.");
+    }
+
+    private static void CraftFromSelection()
+    {
+        var plugins = BepInEx.Bootstrap.Chainloader.PluginInfos;
+        plugins.Clear();
+        Check(Bag.RegisterCraftFromRodBag() == null, "Absent CraftFrom changed registration");
+        plugins[Bag.CraftFromGuid] = new() { Instance = _player };
+        using (Bag.RegisterCraftFromRodBag())
+        {
+            Check(CraftFrom.API.Registered && CraftFrom.API.Select(_player) == _rod, "Registration contract failed");
+            var other = _rod.Clone();
+            _player.Inventory.m_inventory.Insert(0, other);
+            Check(Bag.SelectCraftFromRod(_player) == _rod, "Equipped rod lost priority");
+            _player.Weapon = null!;
+            Check(Bag.SelectCraftFromRod(_player) == other, "First directly carried rod not selected");
+            FishingRodBagUiState.OpenRods.Add(other);
+            Check(Bag.SelectCraftFromRod(_player) == null, "Opened rod admitted");
+            FishingRodBagUiState.OpenRods.Clear();
+            TrollingFishingPlugin.FishingRodBag.Value = Toggle.Off;
+            Check(Bag.SelectCraftFromRod(_player) == null, "Disabled rod admitted");
+            TrollingFishingPlugin.FishingRodBag.Value = Toggle.On;
+            Check(Bag.SelectCraftFromRod(new Player()) == null, "Another player's rod admitted");
+        }
+        Check(!CraftFrom.API.Registered, "Registration leaked");
+        plugins.Clear();
+    }
+
+    private static void CraftFromStale()
+    {
+        Check(Bag.ReadCraftFromRod(_player, _rod) == null && Inventory.LoadCalls == 0, "Empty carried rod loaded");
+        SetExistingData("invalid");
+        Check(Bag.ReadCraftFromRod(_player, _rod) == null && Bag.ReadCraftFromRod(_player, _rod) == null &&
+            TrollingFishingPlugin.ModLogger.Warnings.Count == 1, "Failed load exposed or retried unchanged data");
+        SetExistingData(Fixture(new[] { FishItem() }));
+        ObjectDB.instance.m_items.Remove(_fishPrefab);
+        Check(Bag.ReadCraftFromRod(_player, _rod) == null, "Missing prefab produced a writable partial bag");
+        ObjectDB.instance.m_items.Add(_fishPrefab);
+        var view = Bag.ReadCraftFromRod(_player, _rod)!;
+        int loads = Inventory.LoadCalls;
+        Check(view != null && Bag.IsCraftFromRodCurrent(_player, _rod, view) && Inventory.LoadCalls == loads,
+            "Current check reloaded the inventory");
+        var retired = view;
+        view = Bag.ReadCraftFromRod(_player, _rod)!;
+        Check(retired != view && !Bag.IsCraftFromRodCurrent(_player, _rod, retired!), "Retired transaction view reattached");
+        FishingRodBagUiState.OpenRods.Add(_rod);
+        Check(!Bag.IsCraftFromRodCurrent(_player, _rod, view!), "Open rod retained");
+        FishingRodBagUiState.OpenRods.Clear();
+        _player.FishingLevel = 100;
+        Check(!Bag.IsCraftFromRodCurrent(_player, _rod, view!), "Changed skill capacity retained");
+        var resized = Bag.ReadCraftFromRod(_player, _rod)!;
+        _player.Inventory.GetAllItems().Remove(_rod);
+        Throws(() => Bag.SaveCraftFromRod(_player, _rod, resized));
+        _player.Inventory.GetAllItems().Add(_rod);
+        SetExistingData(Fixture(new[] { FishItem(2) }));
+        var changed = Snapshot();
+        Throws(() => Bag.SaveCraftFromRod(_player, _rod, resized));
+        Unchanged(changed);
+    }
+
+    private static void CraftFromOverflow()
+    {
+        SetExistingData(Fixture(Enumerable.Range(0, 11).Select(FishItem).ToArray()));
+        var view = Bag.ReadCraftFromRod(_player, _rod)!;
+        var items = view.GetAllItems();
+        Check(items.Count == 8, "Overflow exposed");
+        var spent = items[0];
+        items.RemoveAt(0);
+        _player.Inventory.OnNotify = () => throw new InvalidOperationException("Observer failed after debit");
+        Throws(() => Bag.SaveCraftFromRod(_player, _rod, view));
+        Check(Bag.IsCraftFromRodCurrent(_player, _rod, view), "Committed view cannot be rolled back");
+        _player.Inventory.OnNotify = null!;
+        items.Insert(0, spent);
+        Bag.SaveCraftFromRod(_player, _rod, view);
+        _player.FishingLevel = 100;
+        var restored = Bag.ReadCraftFromRod(_player, _rod)!.GetAllItems();
+        Check(restored.Select(i => i.m_customData["test.id"]).Order().SequenceEqual(
+            Enumerable.Range(0, 11).Select(i => i.ToString()).Order()), "Rollback or overflow changed item identities");
+        Check(_rod.m_customData[FishingRodBagStoreState.BagSelectedBaitKey] == "FishingBait", "Lost bait selection");
+    }
+
+    private static void CraftFromConcurrent()
+    {
+        SetExistingData(Fixture(new[] { FishItem() }));
+        var view = Bag.ReadCraftFromRod(_player, _rod)!;
+        string replacement = Fixture(new[] { FishItem(4) });
+        Inventory.DuringSave = () => SetExistingData(replacement);
+        Throws(() => Bag.SaveCraftFromRod(_player, _rod, view));
+        Check(_rod.m_customData[FishingRodBagStoreState.BagDataKey] == replacement, "Serialization overwrote a newer payload");
+        Inventory.DuringSave = null!;
+        view = Bag.ReadCraftFromRod(_player, _rod)!;
+        view.GetAllItems().Clear();
+        string newer = Fixture(new[] { FishItem(5) });
+        _player.Inventory.OnNotify = () => { SetExistingData(newer); throw new InvalidOperationException("Observer replaced payload"); };
+        Throws(() => Bag.SaveCraftFromRod(_player, _rod, view));
+        Throws(() => Bag.SaveCraftFromRod(_player, _rod, view));
+        Check(_rod.m_customData[FishingRodBagStoreState.BagDataKey] == newer, "Rollback overwrote a newer payload");
     }
 
     private static void RoundTrip(int version)

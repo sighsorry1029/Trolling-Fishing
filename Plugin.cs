@@ -12,6 +12,7 @@ namespace TrollingFishing;
 [BepInPlugin(ModGUID, ModName, ModVersion)]
 [BepInDependency("WackyMole.ItemRequiresSkillLevel", BepInDependency.DependencyFlags.SoftDependency)]
 [BepInDependency("Detalhes.ItemRequiresSkillLevel", BepInDependency.DependencyFlags.SoftDependency)]
+[BepInDependency(FishingOverrideSystem.CraftFromGuid, BepInDependency.DependencyFlags.SoftDependency)]
 [BepInDependency(EpicLootBagCompatibility.PluginGuid, BepInDependency.DependencyFlags.SoftDependency)]
 [BepInDependency(PathOfValheimanCompatibility.PluginGuid, BepInDependency.DependencyFlags.SoftDependency)]
 public class TrollingFishingPlugin : BaseUnityPlugin
@@ -44,6 +45,7 @@ public class TrollingFishingPlugin : BaseUnityPlugin
     internal static ConfigEntry<Toggle> FishingRodBagAzuCraftyBoxesAggressiveRefresh = null!;
     internal static ConfigEntry<Toggle> FishingDebugLogging = null!;
 
+    private IDisposable? _craftFromRodBag;
     private FileSystemWatcher? _watcher;
     private FileSystemWatcher? _baitConfigWatcher;
     private readonly object _reloadLock = new();
@@ -90,6 +92,7 @@ public class TrollingFishingPlugin : BaseUnityPlugin
         EpicLootBagCompatibility.Initialize();
         PathOfValheimanCompatibility.Initialize();
         _harmony.PatchAll(assembly);
+        _craftFromRodBag = FishingOverrideSystem.RegisterCraftFromRodBag();
         FishingLocalization.LoadLocalizationLater();
         SetupWatcher();
 
@@ -106,6 +109,9 @@ public class TrollingFishingPlugin : BaseUnityPlugin
     {
         // Release EpicLoot's callback even if config saving or later teardown fails.
         EpicLootBagCompatibility.Reset();
+        try { _craftFromRodBag?.Dispose(); }
+        catch (Exception error) { ModLogger.LogWarning($"CraftFrom fishing bag cleanup failed: {error.GetBaseException().Message}"); }
+        _craftFromRodBag = null;
         SaveWithRespectToConfigSet();
         _watcher?.Dispose();
         _baitConfigWatcher?.Dispose();

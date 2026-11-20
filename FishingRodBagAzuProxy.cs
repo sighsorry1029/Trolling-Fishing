@@ -67,7 +67,7 @@ internal static partial class FishingOverrideSystem
             return;
         }
 
-        ItemDrop.ItemData? activeRod = ResolveAzuCraftyBoxesFishingRod(player, playerInventory);
+        ItemDrop.ItemData? activeRod = ResolveCarriedFishingRod(player, playerInventory);
 
         foreach (ItemDrop.ItemData proxiedRod in FishingRodBagProxyState.Proxies.Keys.ToList())
         {
@@ -90,18 +90,6 @@ internal static partial class FishingOverrideSystem
 
         CreateFishingRodBagProxy(player, activeRod);
     }
-
-    private static ItemDrop.ItemData? ResolveAzuCraftyBoxesFishingRod(Player player, Inventory playerInventory)
-    {
-        ItemDrop.ItemData currentWeapon = player.GetCurrentWeapon();
-        if (IsFishingRod(currentWeapon) && playerInventory.ContainsItem(currentWeapon))
-        {
-            return currentWeapon;
-        }
-
-        return playerInventory.GetAllItems().FirstOrDefault(IsFishingRod);
-    }
-
 
     private static void CreateFishingRodBagProxy(Player player, ItemDrop.ItemData rod)
     {

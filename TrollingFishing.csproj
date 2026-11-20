@@ -463,6 +463,7 @@
         <Compile Include="AzuCraftyBoxesCompat.cs" />
         <Compile Include="FishingRodBagAmmo.cs" />
         <Compile Include="FishingRodBagAmmo.Patches.cs" />
+        <Compile Include="FishingRodBagCraftFrom.cs" />
         <Compile Include="FishingRodBagAzuProxy.cs" />
         <Compile Include="FishingRodBagAzuProxy.Patches.cs" />
         <Compile Include="FishingRodBagRules.cs" />
