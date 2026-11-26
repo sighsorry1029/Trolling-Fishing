@@ -27,6 +27,10 @@ internal static partial class FishingOverrideSystem
             Game.instance.IncrementPlayerStat(PlayerStatType.FishCaught);
             if (quality is >= 0 and <= 6)
             {
+                if (quality.Value == 5 && Game.instance.GetPlayerProfile().GetStat(PlayerStatType.FishCaughtTier4, DifficultyRequirement.Any) == 0f)
+                {
+                    Game.instance.IncrementPlayerStat(PlayerStatType.FishCaughtTier4);
+                }
                 Game.instance.IncrementPlayerStat((PlayerStatType)((int)PlayerStatType.FishCaughtTier0 + quality.Value));
             }
         }

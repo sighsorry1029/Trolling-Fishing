@@ -1,5 +1,61 @@
 # Storage regression checks
 
+## Valheim 1.0.30 follow-up (2026-11-26)
+
+The reported startup exception comes from CaptainValheim 1.1.1's transpiler of
+`KeyHints.UpdateHints`, which requires nine direct combat-hint visibility writes.
+Original 1.0.30 delegates visibility to helper methods and has zero such writes.
+Adding TrollingFishing's ordinary postfix causes Harmony to rerun that external
+transpiler. The native TF target, UI fields and lifecycle contracts remain valid;
+its patch is retained, and no other mod's patches are removed or suppressed.
+
+Two focused production changes were made:
+
+- Bag catches now preserve the new vanilla quality-5 catch correction: increment
+  the Tier4 statistic only when its `DifficultyRequirement.Any` value is zero.
+  The existing local-owner and successful-storage boundary remains in place.
+- Selected-bait highlighting uses public `InventoryElement.Position` and
+  `m_equiped`, removing the missing `m_pos` lookup and per-element reflection.
+  This was already incorrect in 1.0.21; it is not a newly introduced 1.0.30 change.
+
+The final Debug build (`DeployToGame=true`) completed with zero warnings/errors;
+the deployed Steam plugins DLL matches SHA-256
+`3ED8FF0527BAEF398A38144C32964D00C6C47B7A0B389D64FBD62FB441567DCD`.
+All 114 resolved game-DLL references match preserved original client 1.0.30 hashes.
+That Debug validation added no publicization, version bump, Release package, new save format or migration.
+
+Validation: storage/CraftFrom 36/36; casting flow 19/19; extracted catch-statistics
+behavior 16/16 and selected-bait visuals 11/11; original-Mono UI/Harmony checks 16/16; supplied PoV 6.0.16 contract
+checks 35/35. The storage/casting harnesses emit ten existing nullable-analysis
+warnings; the production build has none. [GameContracts](GameContracts/README.md)
+passed against both client 26870846 and dedicated server 26870897 originals:
+17 final dependencies, 7,111 instruction references, 58 static Harmony targets,
+139 injections, 35 cached reflection contracts, 21 KeyHints contracts, the selected
+bait access regression, and the private inventory notification/8 item-reader fixtures.
+The reader fixtures execute in isolated .NET 10, not a Unity scene.
+
+Comparison inputs, detailed scope and reproducible probes are recorded in
+`C:/Users/blizz/.codex/references/valheim/comparisons/1.0.20--1.0.30-trollingfishing-20261126/README.md`.
+An experimental native KeyHints wrapper test could register Awake, but UpdateHints
+JIT requires Unity's Animator native calls; that experiment was not counted as a
+passing test and no native-call stubs were introduced.
+
+Still required: use a CaptainValheim build compatible with 1.0.30 (or disable that
+plugin), then verify actual startup, KB/controller hints and selection marks, bag
+catch statistics, save/reconnect, free/paid bait accounting and host/client/server
+behavior. The supplied live Gale log was rewritten during review and its TF/Captain
+files were disabled as `.dll.old`; no Gale profile files were changed by this task.
+
+Release 1.1.7 follow-up: `dotnet build TrollingFishing.sln -c Release -p:CreatePackages=true`
+completed with zero warnings/errors. The final merged Release DLL passed the
+client/server GameContracts checks above, 16 UI/Harmony checks and 35 PoV 6.0.16
+contract checks. Both ZIPs passed CRC and exact-entry/source-byte checks. Assembly
+version is 1.1.7.0; BepInPlugin, file and manifest versions are 1.1.7. The manifest
+retains BepInExPack 5.4.2360. DLL SHA-256 is
+`BF913E264EB666B637C6DD11D4C84D4FFE9E3EBBD1923124BD9E806369AF432E`.
+This release also includes the previously committed CraftFrom integration. It
+does not modify CaptainValheim or add actual game/multiplayer verification.
+
 ## Current EpicLoot input integration (2026-11-05)
 
 The adapter now uses EpicLoot's GUI-aware shard-input decision and registers enabled

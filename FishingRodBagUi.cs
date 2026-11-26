@@ -1,9 +1,6 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Reflection;
-using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,16 +13,12 @@ internal static class FishingRodBagUiState
 
 internal static partial class FishingOverrideSystem
 {
-    private static Type? _fishingRodBagGridElementType;
-    private static FieldInfo? _fishingRodBagGridElementPositionField;
-    private static FieldInfo? _fishingRodBagGridElementEquippedField;
-
     internal static void UpdateFishingRodBagSelectedBaitVisual(InventoryGrid grid, Inventory inventory)
     {
         if (grid == null ||
             inventory == null ||
             !FishingRodBagStoreState.InventoryOwners.TryGetValue(inventory, out ItemDrop.ItemData rod) ||
-            InventoryGridElementsField?.GetValue(grid) is not IEnumerable elements)
+            InventoryGridElementsField?.GetValue(grid) is not List<InventoryElement> elements)
         {
             return;
         }
@@ -36,27 +29,15 @@ internal static partial class FishingOverrideSystem
                 ? selectedName
                 : null;
 
-        foreach (object element in elements)
+        foreach (InventoryElement element in elements)
         {
-            if (element == null)
+            if (element == null || element.m_equiped == null)
             {
                 continue;
             }
 
-            Type elementType = element.GetType();
-            if (_fishingRodBagGridElementType != elementType)
-            {
-                _fishingRodBagGridElementType = elementType;
-                _fishingRodBagGridElementPositionField = AccessTools.Field(elementType, "m_pos");
-                _fishingRodBagGridElementEquippedField = AccessTools.Field(elementType, "m_equiped");
-            }
-
-            if (_fishingRodBagGridElementPositionField?.GetValue(element) is not Vector2i position ||
-                _fishingRodBagGridElementEquippedField?.GetValue(element) is not Image equippedImage)
-            {
-                continue;
-            }
-
+            Vector2i position = element.Position;
+            Image equippedImage = element.m_equiped;
             equippedImage.enabled = false;
             ItemDrop.ItemData item = inventory.GetItemAt(position.x, position.y);
             if (item != null)
